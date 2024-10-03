@@ -1,3 +1,10 @@
+ 
+from numpy import array, zeros, linspace
+import numpy as np
+import matplotlib.pyplot as plt
+
+from miscellaneous import decorators 
+
 #EULER
 
 @decorators.profiling
@@ -36,5 +43,50 @@ def Euler(U, dt, t, F):
     return U + dt * F(U, t)
 
 
+  # CRANK-NICOLSON
+
+# Método de punto fijo para aproximar U_{n+1}
+def fixed_point_iteration(U_n, dt, tol=1e-6, max_iter=100):
+    U_next = U_n.copy()  # Inicializamos U_{n+1} como U_n (primera aproximación)
+    
+    for _ in range(max_iter):
+        U_next_old = U_next.copy()
+        # Crank-Nicolson: U_{n+1} = U_n + (dt / 2) * (F(U_n) + F(U_{n+1}))
+        U_next = U_n + (dt / 2) * (Kepler(U_n, 0) + Kepler(U_next_old, 0))
+        
+        # Verificamos la convergencia
+        if np.linalg.norm(U_next - U_next_old) < tol:
+            break
+
+    return U_next
+
+# Implementación de Crank-Nicolson
+@decorators.profiling
+def abstraction_for_F_and_Crank_Nicolson(): 
+
+    U = array([1, 0, 0, 1])
+    
+    N = 200 
+    x = array(zeros(N))
+    y = array(zeros(N))
+    t = array(zeros(N))
+    x[0] = U[0]
+    y[0] = U[1]
+    t[0] = 0 
+    
+    for i in range(1, N): 
+        dt = 0.1
+        t[i] = dt * i
+        U = fixed_point_iteration(U, dt)
+        x[i] = U[0]
+        y[i] = U[1]
+    
+    plt.plot(x, y)
+    plt.title("Órbita Kepleriana usando Crank-Nicolson")
+    plt.show()
+
+if __name__ == "__main__":
   
+   abstraction_for_F_and_Euler()
+   abstraction_for_F_and_Crank_Nicolson()
   
