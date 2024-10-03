@@ -29,6 +29,7 @@ def abstraction_for_F_and_Euler():
       y[i] = U[1]
     
     plt.plot(x, y)
+    plt.title("Órbita Kepleriana usando Euler")
     plt.show()
 
 def Kepler(U, t): 
@@ -85,8 +86,41 @@ def abstraction_for_F_and_Crank_Nicolson():
     plt.title("Órbita Kepleriana usando Crank-Nicolson")
     plt.show()
 
+# RUNGE-KUTTA DE CUARTO ORDEN (RK4)
+
+def RungeKutta(U, dt, t, F):
+    k1 = F(U, t)
+    k2 = F(U + dt/2 * k1, t + dt/2)
+    k3 = F(U + dt/2 * k2, t + dt/2)
+    k4 = F(U + dt * k3, t + dt)
+    return U + (dt / 6) * (k1 + 2 * k2 + 2 * k3 + k4)
+
+def abstraction_for_F_and_RungeKutta(): 
+
+    U = array([1, 0, 0, 1])
+    
+    N = 200 
+    x = zeros(N)
+    y = zeros(N)
+    t = zeros(N)
+    x[0] = U[0]
+    y[0] = U[1]
+    t[0] = 0 
+    
+    for i in range(1, N): 
+        dt = 0.1
+        t[i] = dt * i
+        U = RungeKutta(U, dt, t[i], Kepler)
+        x[i] = U[0]
+        y[i] = U[1]
+    
+    plt.plot(x, y)
+    plt.title("Órbita Kepleriana usando Runge-Kutta 4")
+    plt.show()
+
 if __name__ == "__main__":
   
    abstraction_for_F_and_Euler()
    abstraction_for_F_and_Crank_Nicolson()
+   abstraction_for_F_and_RungeKutta()
   
