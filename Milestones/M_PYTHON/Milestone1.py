@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 
 from miscellaneous import decorators 
 
+# METODO DE EULER !!!
+
 @decorators.profiling
 def first_version(): 
     """ 
@@ -15,17 +17,19 @@ def first_version():
     The idea is to mimic mathematical concepts or abstractions.  
     """
 
-    U = array( [ 1, 0, 0, 1 ])
-    
+    U = array( [ 1, 0, 0, 1 ]) # Contiene las condiciones iniciales de la orbita
+                               # U[0] = x, U[1] = y, U[2] = dx/dt, U[3] = dy/dt
+                               
     N = 200 
-    x = array( zeros(N) )
-    y = array( zeros(N) )
-    x[0] = U[0] 
+    x = array( zeros(N) ) # Se crean arrays para almacenar los valores de x, y en el tiempo en cada punto de la orbita
+    y = array( zeros(N) ) 
+    x[0] = U[0] # Se almacenan las condiciones iniciales en los arrays
     y[0] = U[1]
     
     for i in range(1, N): 
     
       F = array( [ U[2], U[3], -U[0]/(U[0]**2+U[1]**2)**1.5, -U[1]/(U[0]**2+U[1]**2)**1.5 ] ) 
+      # Esta es la fuerza gravitatoria en las direcciones 𝑥, y donde las aceleraciones dependen de la distancia al centro de la órbita.
       dt = 0.1 
       U = U + dt * F 
       x[i] = U[0] 
@@ -100,13 +104,7 @@ def Euler(U, dt, t, F):
 
 if __name__ == "__main__":
   
-  first_version()
-  abstraction_for_F()
-  abstraction_for_F_and_Euler()
-   
-
-
-
-
-
-
+  # first_version()
+  # abstraction_for_F()
+  # abstraction_for_F_and_Euler()
+  
