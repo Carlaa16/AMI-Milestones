@@ -104,7 +104,9 @@ def Euler(U, dt, t, F):
 
 if __name__ == "__main__":
   
+  # Escribo el codigo que quiera obtener:
+
   # first_version()
   # abstraction_for_F()
-  # abstraction_for_F_and_Euler()
+   abstraction_for_F_and_Euler()
   
