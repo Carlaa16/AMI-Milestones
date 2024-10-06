@@ -49,3 +49,12 @@ def Simulation(tf, N, U0):
 if __name__ == "__main__":
 
   Simulation(100, 100, array( [ 1., 0., 0., 1. ] ) )
+
+  """"
+  Si compilaras manualmente el archivo de Cauchy_problem.py antes de ejecutar tu código,
+  el archivo .pyc aún se crearía si Python no encuentra un archivo compilado válido en el
+  directorio __pycache__. Sin embargo, el propósito del archivo .pyc es acelerar la carga
+  de módulos. Python siempre intenta crear el archivo .pyc la primera vez que se ejecuta
+  un script si no existe o si el archivo fuente (.py) ha sido modificado.
+  """
+  
