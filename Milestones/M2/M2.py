@@ -16,9 +16,9 @@ def Simulation(tf, N, U0):
     The objective of this Milestone is to create different functions or abstractions 
     by means of functional programming or function composition. 
     Namely, the following modules are created to allow this functional composition:
-            1) ODES.Cauhy_problem
-            2) ODES.Temporal_schemes
-            3) Physics.Orbits
+            1) ODES.Cauhy_problem. --> aqui estamos cumpliendo el apartado 5
+            2) ODES.Temporal_schemes -->De aqui imporamoslos esquemas temporales para cumplir apartados 1,2,3,4
+            3) Physics.Orbits --> Aqui introducimos las ecuaciones de la orbita,cumpliendo apartado 6
     
     The idea is to create a Cauchy problem abstraction to integrate different physical 
     problems with different temporal schemes.
