@@ -32,7 +32,7 @@ def Simulation(tf, N, U0):
 
 
     t = linspace(0, tf, N)
-    schemes = [  (Euler, None, None ), (Inverse_Euler, None, None), (Crank_Nicolson, None, None), (RK4, None, None), (Embedded_RK, 2, 1e-1), (Embedded_RK, 8, 1e-1)  ]
+    schemes = [  (Euler, None, None ), (Inverse_Euler, None, None), (Crank_Nicolson, None, None), (Embedded_RK, 2, 1e-1), (Embedded_RK, 8, 1e-1)  ]
 
     
     for (method, order, eps)  in schemes:
@@ -57,7 +57,7 @@ def Simulation_with_different_timesteps(tf, U0):
     
     timesteps = [50, 100, 500, 1000]  # Diferentes valores de N (más grande, más pequeño el paso de tiempo)
     schemes = [(Euler, None, None), (Inverse_Euler, None, None), 
-               (Crank_Nicolson, None, None), (RK4, None, None), 
+               (Crank_Nicolson, None, None), 
                (Embedded_RK, 2, 1e-1), (Embedded_RK, 8, 1e-1)]
     
     for N in timesteps:
