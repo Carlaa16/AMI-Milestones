@@ -49,3 +49,31 @@ def Simulation(tf, N, U0):
 if __name__ == "__main__":
 
   Simulation(100, 100, array( [ 1., 0., 0., 1. ] ) )
+
+# Nueva función para el cambio de pasos temporales
+
+def Simulation_with_different_timesteps(tf, U0):
+    """ Simulación con diferentes tamaños de paso de tiempo """
+    
+    timesteps = [50, 100, 500, 1000]  # Diferentes valores de N (más grande, más pequeño el paso de tiempo)
+    schemes = [(Euler, None, None), (Inverse_Euler, None, None), 
+               (Crank_Nicolson, None, None), (RK4, None, None), 
+               (Embedded_RK, 2, 1e-1), (Embedded_RK, 8, 1e-1)]
+    
+    for N in timesteps:
+        t = linspace(0, tf, N)
+        
+        for (method, order, eps) in schemes:
+            if order is not None:
+                U = Cauchy_problem(Kepler, t, U0, method, q=order, Tolerance=eps)
+            else:
+                U = Cauchy_problem(Kepler, t, U0, method)
+            
+            plt.axes().set_aspect('equal')
+            plt.plot(U[:, 0], U[:, 1], ".", label=f"Steps: {N}, Method: {method.__name__}")
+            plt.legend()
+            plt.show()
+
+if __name__ == "__main__":
+    # Llama a la nueva función con la condición inicial
+    Simulation_with_different_timesteps(100, array([1., 0., 0., 1.]))
