@@ -3,7 +3,7 @@
 Asignatura: AM1
 Fecha de Clase: 24/10/2024
 
-## Metodología para aprender código:
+## Metodología para aprender código':'
 
 1. Xtreme programming
     - Driver
@@ -11,7 +11,7 @@ Fecha de Clase: 24/10/2024
 2. TDD  (Test Driven Development)
 3. Top Down
     - Consiste en agarrar un problea gordo (top), y seleccionar las partes mas pequeñas e ir desarrollando (down)
-        
+
         ```mermaid
         graph TD
             A["Top-Down Approach"]
@@ -30,10 +30,8 @@ Fecha de Clase: 24/10/2024
         %% - Cada parte se desarrolla individualmente
         %% - Las soluciones de las partes se combinan para resolver el problema original
         ```
-        
-    
+
     Este diagrama ilustra el enfoque Top-Down mencionado en tus apuntes. Comienza con el "problema gordo" en la parte superior y muestra cómo se descompone en partes más pequeñas para su desarrollo. Finalmente, estas partes convergen en la solución final en la parte inferior del diagrama, representando el proceso "down".
-    
 
 ## METODO DE RICHARDSON
 
@@ -257,4 +255,3 @@ plt.show()
 
 # Grafico que sea el log del Error y el Log de N
 # debe salir una recta con pendiente negativa  
-```
