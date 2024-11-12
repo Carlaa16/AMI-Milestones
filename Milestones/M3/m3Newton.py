@@ -2,19 +2,6 @@ from numpy import array, linspace, zeros, size, shape, log10
 from numpy.linalg import norm
 from scipy.stats import linregress
 
-def Richardson(U0, t1, F, ET, problema, orden):
-    N = size(t1)
-    t2 = linspace(0, t1[-1], 2*size(t1))
-    Er = zeros((len(U0), N))
-    
-    U1 = problema(U0, t1, F, ET)
-    U2 = problema(U0, t2, F, ET)
-    
-    for i in range(N):
-        Er[:,i] = (U2[:,2*i] - U1[:,i]) / (1 - 1/2**orden)
-    
-    return Er
-
 import numpy as np
 from numpy.linalg import norm
 from scipy.stats import linregress
@@ -51,13 +38,17 @@ def Convergencia(U0, t1, F, ET, problema, orden):
     
     return log_Er, log_N, linregress(log_N, log_Er)
 
+def Richardson(U0, t1, F, ET, problema, orden):
+    log_Er, log_N, regression = Convergencia(U0, t1, F, ET, problema, orden)
+    return log_Er
+
 # --- Ejemplo de ejecución ---
 import numpy as np
 
 # Definimos una función `problema` simple como ejemplo
 def problema(U0, t, F, ET):
     # Ejemplo: simulación de una función exponencial decreciente
-    return np.array([[U0 * np.exp(-ET * t_i)] for t_i in t]).T
+    return np.array([U0 * np.exp(-ET * t_i) for t_i in t]).T
 
 # Datos de entrada de ejemplo
 U0 = np.array([1.0])  # Condición inicial
