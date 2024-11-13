@@ -1,7 +1,4 @@
 from numpy import array, linspace, zeros, size, shape, log10
-from numpy.linalg import norm
-from scipy.stats import linregress
-
 import numpy as np
 from numpy.linalg import norm
 from scipy.stats import linregress
