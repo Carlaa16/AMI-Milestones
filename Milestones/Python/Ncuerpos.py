@@ -19,8 +19,9 @@ def F(U, t):
         for j in range(Nb):
             if i != j:
                 rij = r[j] - r[i]
-                rij3 = np.linalg.norm(rij)**3
-                dvdt[i] += rij/rij3 
+                rij_norm = np.sqrt(np.sum(rij**2))
+                rij3 = rij_norm**3
+                dvdt[i] += rij/rij3 # Ley de gravitacion universal
     return Fs
 
 # Definir las condiciones iniciales
@@ -60,8 +61,6 @@ def integrate(U0, t_max, dt):
     return t_values, U_values
 
 
-# Definir las condiciones iniciales
-U0 = array([1, 0, 0, 1, -1, 0, 0, -1])  # Ejemplo de condiciones iniciales para 2 cuerpos
 t_max = 10  # Tiempo máximo de simulación
 dt = 0.01  # Paso de tiempo
 
