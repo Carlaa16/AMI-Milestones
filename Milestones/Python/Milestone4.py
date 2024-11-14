@@ -171,7 +171,9 @@ Método de Euler Inverso:
     La solución numérica permanece estable incluso para pasos de tiempo más grandes. Sin embargo, 
     si el paso de tiempo es demasiado grande, la solución puede ser menos precisa debido a errores
     de truncamiento.
-nterpretación de los Resultados
+
+Interpretación de los Resultados
+
 Método de Crank-Nicolson:
     La solución numérica es estable y más precisa que la del método de Euler inverso. Esto se
     debe a que el método de Crank-Nicolson es incondicionalmente estable y trata el tiempo de
