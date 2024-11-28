@@ -19,6 +19,24 @@ def Kepler(U, t):
     d = (x**2 + y**2)**1.5
     return np.array([dxdt, dydt, -x/d, -y/d])
 
+def RK2(U, dt, t, F):
+    k1 = F(U, t)
+    k2 = F(U + dt*k1, t + dt)
+    return U + dt/2 * (k1 + k2)
+
+def RK3(U, dt, t, F):
+    k1 = F(U, t)
+    k2 = F(U + dt/2 * k1, t + dt/2)
+    k3 = F(U - dt*k1 + 2*dt*k2, t + dt)
+    return U + dt/6 * (k1 + 4*k2 + k3)
+
+def RK4(U, dt, t, F):
+    k1 = F(U, t)
+    k2 = F(U + dt/2 * k1, t + dt/2)
+    k3 = F(U + dt/2 * k2, t + dt/2)
+    k4 = F(U + dt*k3, t + dt)
+    return U + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
+
 def linear_oscillator(U, t):
     x = U[0]
     v = U[1]
@@ -41,6 +59,9 @@ t_max = 10
 t_values, U_euler = solve_oscillator(Euler, U0, dt, t_max, linear_oscillator)
 t_values, U_euler_inverso = solve_oscillator(Euler_inverso, U0, dt, t_max, linear_oscillator)
 t_values, U_crank_nicolson = solve_oscillator(Crank_Nicolson, U0, dt, t_max, linear_oscillator)
+t_values, U_rk2 = solve_oscillator(RK2, U0, dt, t_max, linear_oscillator)
+t_values, U_rk3 = solve_oscillator(RK3, U0, dt, t_max, linear_oscillator)
+t_values, U_rk4 = solve_oscillator(RK4, U0, dt, t_max, linear_oscillator)
 
 # Graficar los resultados
 import matplotlib.pyplot as plt
@@ -49,6 +70,9 @@ plt.figure(figsize=(12, 8))
 plt.plot(t_values, U_euler[:, 0], label='Euler')
 plt.plot(t_values, U_euler_inverso[:, 0], label='Euler Inverso')
 plt.plot(t_values, U_crank_nicolson[:, 0], label='Crank-Nicolson')
+plt.plot(t_values, U_rk2[:, 0], label='RK2')
+plt.plot(t_values, U_rk3[:, 0], label='RK3')
+plt.plot(t_values, U_rk4[:, 0], label='RK4')
 plt.xlabel('Time')
 plt.ylabel('x(t)')
 plt.legend()
@@ -79,27 +103,91 @@ def stability_region_crank_nicolson():
     G = (1 + z / 2) / (1 - z / 2)
     return np.abs(G) <= 1
 
-# Graficar las regiones de estabilidad
-plt.figure(figsize=(18, 6))
+def stability_region_rk2():
+    z = np.linspace(-3, 3, 400) + 1j * np.linspace(-3, 3, 400)[:, None]
+    G = 1 + z + z**2 / 2
+    return np.abs(G) <= 1
 
-plt.subplot(1, 3, 1)
-plt.imshow(stability_region_euler(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
-plt.title('Región de Estabilidad - Euler')
-plt.xlabel('Re(hλ)')
-plt.ylabel('Im(hλ)')
+def stability_region_rk3():
+    z = np.linspace(-3, 3, 400) + 1j * np.linspace(-3, 3, 400)[:, None]
+    G = 1 + z + z**2 / 2 + z**3 / 6
+    return np.abs(G) <= 1
 
-plt.subplot(1, 3, 2)
-plt.imshow(stability_region_euler_inverso(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
-plt.title('Región de Estabilidad - Euler Inverso')
-plt.xlabel('Re(hλ)')
-plt.ylabel('Im(hλ)')
+def stability_region_rk4():
+    z = np.linspace(-3, 3, 400) + 1j * np.linspace(-3, 3, 400)[:, None]
+    G = 1 + z + z**2 / 2 + z**3 / 6 + z**4 / 24
+    return np.abs(G) <= 1
 
-plt.subplot(1, 3, 3)
-plt.imshow(stability_region_crank_nicolson(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
-plt.title('Región de Estabilidad - Crank-Nicolson')
-plt.xlabel('Re(hλ)')
-plt.ylabel('Im(hλ)')
+# # Graficar las regiones de estabilidad
+# plt.figure(figsize=(18, 6))
 
+# plt.subplot(1, 4, 1)
+# plt.imshow(stability_region_euler(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
+# plt.title('Región de Estabilidad - Euler')
+# plt.xlabel('Re(hλ)')
+# plt.ylabel('Im(hλ)')
+
+# plt.subplot(1, 4, 2)
+# plt.imshow(stability_region_euler_inverso(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
+# plt.title('Región de Estabilidad - Euler Inverso')
+# plt.xlabel('Re(hλ)')
+# plt.ylabel('Im(hλ)')
+
+# plt.subplot(1, 4, 3)
+# plt.imshow(stability_region_crank_nicolson(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
+# plt.title('Región de Estabilidad - Crank-Nicolson')
+# plt.xlabel('Re(hλ)')
+# plt.ylabel('Im(hλ)')
+
+# plt.subplot(1, 4, 4)
+# plt.imshow(stability_region_rk2(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
+# plt.title('Región de Estabilidad - RK2')
+# plt.xlabel('Re(hλ)')
+# plt.ylabel('Im(hλ)')
+
+# plt.tight_layout()
+# plt.show()
+
+# Crear una figura con una cuadrícula de 2x2
+fig, axs = plt.subplots(2, 3, figsize=(12, 8))
+
+# Primer subplot
+axs[0, 0].imshow(stability_region_euler(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
+axs[0, 0].set_title('Región de Estabilidad - Euler')
+axs[0, 0].set_xlabel('Re(hλ)')
+axs[0, 0].set_ylabel('Im(hλ)')
+
+# Segundo subplot
+axs[0, 1].imshow(stability_region_euler_inverso(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
+axs[0, 1].set_title('Región de Estabilidad - Euler Inverso')
+axs[0, 1].set_xlabel('Re(hλ)')
+axs[0, 1].set_ylabel('Im(hλ)')
+
+# Tercer subplot
+axs[0, 2].imshow(stability_region_crank_nicolson(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
+axs[0, 2].set_title('Región de Estabilidad - Crank-Nicolson')
+axs[0, 2].set_xlabel('Re(hλ)')
+axs[0, 2].set_ylabel('Im(hλ)')
+
+# Cuarto subplot
+axs[1, 0].imshow(stability_region_rk2(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
+axs[1, 0].set_title('Región de Estabilidad - RK2')
+axs[1, 0].set_xlabel('Re(hλ)')
+axs[1, 0].set_ylabel('Im(hλ)')
+
+# Quinto subplot
+axs[1, 1].imshow(stability_region_rk3(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
+axs[1, 1].set_title('Región de Estabilidad - RK3')
+axs[1, 1].set_xlabel('Re(hλ)')
+axs[1, 1].set_ylabel('Im(hλ)')
+
+# Sexto subplot
+axs[1, 2].imshow(stability_region_rk4(), extent=[-3, 3, -3, 3], origin='lower', cmap='Greys')
+axs[1, 2].set_title('Región de Estabilidad - RK4')
+axs[1, 2].set_xlabel('Re(hλ)')
+axs[1, 2].set_ylabel('Im(hλ)')
+
+# Ajustar el diseño para evitar superposiciones
 plt.tight_layout()
 plt.show()
 
@@ -149,12 +237,18 @@ t_max = 10
 t_values, U_euler = solve_oscillator(Euler, U0, dt, t_max, linear_oscillator)
 t_values, U_euler_inverso = solve_oscillator(Euler_inverso, U0, dt, t_max, linear_oscillator)
 t_values, U_crank_nicolson = solve_oscillator(Crank_Nicolson, U0, dt, t_max, linear_oscillator)
+t_values, U_rk2 = solve_oscillator(RK2, U0, dt, t_max, linear_oscillator)
+t_values, U_rk3 = solve_oscillator(RK3, U0, dt, t_max, linear_oscillator)
+t_values, U_rk4 = solve_oscillator(RK4, U0, dt, t_max, linear_oscillator)
 
 # Graficar los resultados
 plt.figure(figsize=(12, 8))
 plt.plot(t_values, U_euler[:, 0], label='Euler')
 plt.plot(t_values, U_euler_inverso[:, 0], label='Euler Inverso')
 plt.plot(t_values, U_crank_nicolson[:, 0], label='Crank-Nicolson')
+plt.plot(t_values,U_rk2[:, 0], label='RK2')
+plt.plot(t_values, U_rk3[:, 0], label='RK3')
+plt.plot(t_values, U_rk4[:, 0], label='RK4')  
 plt.xlabel('Time')
 plt.ylabel('x(t)')
 plt.legend()
