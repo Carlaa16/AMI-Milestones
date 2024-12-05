@@ -64,11 +64,11 @@ def cartesian_to_geographic(x, y, z):
     lat = np.degrees(np.arctan2(z, hyp))
     return lat, lon
 
-sat_files_dir = r"C:\Users\carla\OneDrive\Documentos\MUSE\ISG\CODIGOS\Nodupla"
+sat_files_dir = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\Nodupla"
 
 all_satellite_data = pd.DataFrame()
 
-iot_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\ISG\CODIGOS\IoT_Clean.txt"
+iot_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\IoT_Clean.txt"
 encoding = detect_file_encoding(iot_file)
 
 # Leer datos de todos los satélites (del 1 al 22)
@@ -145,7 +145,7 @@ plt.xlabel("Longitud")
 plt.ylabel("Latitud")
 
 # Mantener referencia a la figura para dibujar círculos
-background = plt.imread(r"C:\Users\carla\OneDrive\Documentos\MUSE\ISG\CODIGOS\Atlantis.png")
+background = plt.imread(r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\Atlantis.png")
 ax.imshow(background, extent=[-180, 180, -90, 90], aspect='auto')
 
 # Variable para guardar el círculo actual
@@ -218,7 +218,7 @@ for index, sat in all_satellite_data.iterrows():
 df_resultados = pd.DataFrame(resultados)
 
 # Guardar los resultados en un archivo Excel
-output_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\ISG\CODIGOS\resultados_satélites.xlsx"
+output_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\resultados_satélites.xlsx"
 df_resultados.to_excel(output_file, index=False)
 
 print(f"Los resultados se han guardado en {output_file}")
