@@ -64,16 +64,33 @@ def cartesian_to_geographic(x, y, z):
     lat = np.degrees(np.arctan2(z, hyp))
     return lat, lon
 
+# Función para calcular el radio de cobertura de dispositivos IoT
+def calculate_device_coverage_radius(beamwidth_deg):
+    beamwidth_rad = np.radians(beamwidth_deg)
+    radius_km = R_EARTH * np.tan(beamwidth_rad / 2)
+    return radius_km
+
+# Función para generar un círculo de cobertura de dispositivos IoT
+def generate_device_coverage_circle(lat, lon, radius_km, num_points=100):
+    angles = np.linspace(0, 2 * np.pi, num_points)
+    circle_lat = lat + (radius_km / R_EARTH) * (180 / np.pi) * np.sin(angles)
+    circle_lon = lon + (radius_km / R_EARTH) * (180 / np.pi) * np.cos(angles) / np.cos(np.radians(lat))
+    return circle_lat, circle_lon
+
+# Parámetro del beamwidth para dispositivos IoT
+beamwidth = 5  # Ajusta este valor según sea necesario
+
+
 sat_files_dir = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\Nodupla"
 
 all_satellite_data = pd.DataFrame()
 
-iot_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\IoT_Clean.txt"
+iot_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\IoT_Cleaned.txt"
 encoding = detect_file_encoding(iot_file)
 
 # Leer datos de todos los satélites (del 1 al 22)
-for sat_num in range(1, 23):  # Cambiar el rango si tienes más o menos satélites
-    sat_file = os.path.join(sat_files_dir, f"sat_{sat_num}_File.txt")
+for sat_num in range(10):  # Cambiar el rango si tienes más o menos satélites
+    sat_file = os.path.join(sat_files_dir, f"sat_{sat_num}_Cleaned.txt")
     
     # Verifica si el archivo existe
     if not os.path.exists(sat_file):
@@ -132,6 +149,8 @@ if not iot_df.empty:
 else:
     print("Error: No hay datos válidos en iot_df después de filtrar.")
 
+
+
 # Agregar altitud y FOV predeterminados
 all_satellite_data['alt'] = 850  # Altitud en km
 all_satellite_data['fov_angle'] = 100  # Ángulo de visión en grados
@@ -140,7 +159,7 @@ all_satellite_data['fov_angle'] = 100  # Ángulo de visión en grados
 fig, ax = plt.subplots(figsize=(15, 8))
 ax.set_xlim([-180, 180])
 ax.set_ylim([-90, 90])
-plt.title("FOV Dinámico de Satélites")
+plt.title("FOV Dinámico de Satélites e IoT")
 plt.xlabel("Longitud")
 plt.ylabel("Latitud")
 
@@ -165,6 +184,13 @@ fov_fills = []  # Lista para los rellenos de los FOV
 fov_borders = []  # Lista para los bordes de los FOV
 # Crear un DataFrame para guardar los resultados
 resultados = []
+
+# Dibujar las coberturas IoT con círculos más definidos
+for _, device in iot_df.iterrows():
+    radius_km = calculate_device_coverage_radius(beamwidth)
+    circle_lat, circle_lon = generate_device_coverage_circle(device['lat'], device['lon'], radius_km)
+    ax.plot(circle_lon, circle_lat, color='blue', linewidth=1.5, label=f'Cobertura IoT {device["id"]}')  # Borde del círculo
+    ax.fill(circle_lon, circle_lat, color='blue', alpha=0.2)  # Relleno del círculo
 
 # Animar el movimiento dinámico
 for index, sat in all_satellite_data.iterrows():

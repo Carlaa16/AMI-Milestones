@@ -26,16 +26,16 @@ def remove_duplicates_in_file(input_path, replacements, output_path):
 
 if __name__ == "__main__":
     # Carpeta donde están los archivos originales
-    input_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\ISG\CODIGOS\CleanReports"
+    input_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\ReportSS\IoT_ReportFile.txt"
     
     # Carpeta para guardar los archivos limpiados
-    output_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\ISG\CODIGOS"
+    output_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS"
     os.makedirs(output_file, exist_ok=True)
     
     print(f"Archivo de salida creada/verificada: {output_file}")
     
     # Patrón para buscar archivos
-    file_pattern = os.path.join(input_file, "IoT_Cleaned.txt")
+    file_pattern = os.path.join(input_file, "IoT_ReportFile.txt")
     files = glob.glob(file_pattern)
     print(f"Archivos encontrados que coinciden con el patrón: {files}")
     
@@ -52,6 +52,6 @@ if __name__ == "__main__":
         
         for input_file in files:
             # Define el nombre del archivo de salida en la carpeta `CleanClean`
-            output_file = os.path.join(output_file, os.path.basename(input_file).replace("Cleaned", "Clean"))
+            output_file = os.path.join(output_file, os.path.basename(input_file).replace("IoT_ReportFile", "Clean"))
             print(f"Procesando {input_file} -> {output_file}")
             remove_duplicates_in_file(input_file, replacements, output_file)

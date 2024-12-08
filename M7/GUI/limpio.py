@@ -8,12 +8,99 @@ from PyQt5.QtWidgets import QApplication
 from GUI import GMATGUI
 from datetime import datetime
 
+def create_directories_if_not_exist(directories):
+    """
+    Crea los directorios si no existen.
+    """
+    for directory in directories:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            print(f"Directorio creado: {directory}")
+
+
+def clear_directory(directory_path):
+    """
+    Elimina todos los archivos en un directorio, pero no elimina el directorio en sí.
+    """
+    if os.path.exists(directory_path):
+        for file in os.listdir(directory_path):
+            file_path = os.path.join(directory_path, file)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+                #print(f"Archivo eliminado: {file_path}")
+
+
+def verify_reports_generated(report_dirs):
+    """
+    Verifica que se hayan generado archivos en los directorios de reportes.
+    """
+    for report_dir in report_dirs:
+        files = [f for f in os.listdir(report_dir) if f.endswith(".txt")]
+        if not files:
+            raise FileNotFoundError(f"No se generaron reportes en {report_dir}.")
+        print(f"Reportes encontrados en {report_dir}: {len(files)} archivos.")
+
+def clean_and_deduplicate_report(input_file, output_file, space_width=4):
+    """
+    Limpia un reporte GMAT, elimina comas, normaliza espacios y elimina líneas duplicadas.
+    """
+    try:
+        with open(input_file, "r") as infile:
+            lines = infile.readlines()
+
+        cleaned_lines = []
+        for line in lines:
+            # Ignorar líneas vacías o encabezados redundantes
+            if not line.strip() or line.startswith("%"):
+                continue
+
+            # Reemplazar comas por espacios y normalizar espacios
+            clean_line = " ".join(line.replace(",", " ").split())
+            cleaned_lines.append(clean_line)
+
+        # Eliminar líneas duplicadas manteniendo el orden
+        unique_lines = list(dict.fromkeys(cleaned_lines))
+
+        # Guardar las líneas procesadas en el archivo de salida
+        with open(output_file, "w") as outfile:
+            outfile.writelines(line + "\n" for line in unique_lines)
+
+        print(f"Reporte limpio guardado en: {output_file}")
+    except Exception as e:
+        print(f"Error al procesar {input_file}: {e}")
+
+
+def clean_and_deduplicate_reports(source_dir, cleaned_dir, space_width=4):
+    """
+    Limpia y deduplica todos los reportes en un directorio.
+    """
+    os.makedirs(cleaned_dir, exist_ok=True)
+    print(f"Procesando reportes desde: {source_dir} -> {cleaned_dir}")
+
+    for file_name in os.listdir(source_dir):
+        if file_name.endswith(".txt"):
+            input_path = os.path.join(source_dir, file_name)
+            output_path = os.path.join(cleaned_dir, f"cleaned_{file_name}")
+            clean_and_deduplicate_report(input_path, output_path, space_width)
 
 
 def GMAT_Files(Inputs):
     workspace_dir = Inputs["Workspace:"]#os.path.dirname(os.path.abspath(__file__))
     # Archivo donde se guardará el script GMAT
     output_file = os.path.join(workspace_dir, "Atlantis.script")
+    reports_sat_dir = os.path.join(workspace_dir, "ReportsSat")  # Carpeta de reportes generados
+    reports_iot_dir = os.path.join(workspace_dir, "ReportSS")  # Carpeta de reportes generados
+    cleaned_reports_dir = os.path.join(workspace_dir, "CleanedReports")  # Carpeta para reportes limpios
+    
+    # Crear directorios si no existen
+    create_directories_if_not_exist([reports_sat_dir, reports_iot_dir, cleaned_reports_dir])
+
+    
+    # Limpiar la carpeta de reportes limpios antes de procesar
+    clear_directory(reports_sat_dir)
+    clear_directory(reports_iot_dir)
+    clear_directory(cleaned_reports_dir)
+
     # Ruta completa al archivo .shp
     shapefile_path = os.path.join(workspace_dir, "ne_10m_geography_marine_polys", "ne_10m_geography_marine_polys.shp")
     # Cargar el mapa del mundo desde el archivo
@@ -281,7 +368,7 @@ def GMAT_Files(Inputs):
             file.write(f"GMAT sat_{i}_ReportFile.Add = {{sat_{i}.Earth.Latitude}};\n")
             file.write(f"GMAT sat_{i}_ReportFile.Add = {{sat_{i}.Earth.Longitude}};\n")
             file.write(f"GMAT sat_{i}_ReportFile.WriteReport = true;\n")
-            file.write(f"GMAT sat_{i}_ReportFile.Filename = '{os.path.join(workspace_dir,"Reports",f"sat_{i}_ReportFile.txt")}';\n\n")
+            file.write(f"GMAT sat_{i}_ReportFile.Filename = '{os.path.join(workspace_dir,"ReportsSat",f"sat_{i}_ReportFile.txt")}';\n\n")
         
         file.write(f"Create ReportFile IoT_ReportFile;\n")
         file.write(f"GMAT IoT_ReportFile.SolverIterations = Current;\n")
@@ -302,7 +389,7 @@ def GMAT_Files(Inputs):
             file.write(f"GMAT IoT_ReportFile.Add = {{IoT_{i}.EarthFixed.Z}};\n")
 
         file.write(f"GMAT IoT_ReportFile.WriteReport = true;\n")
-        file.write(f"GMAT IoT_ReportFile.Filename = '{os.path.join(workspace_dir,"Reports","IoT_ReportFile.txt")}';\n\n")
+        file.write(f"GMAT IoT_ReportFile.Filename = '{os.path.join(workspace_dir,"ReportSS","IoT_ReportFile.txt")}';\n\n")
 
 
 
@@ -324,6 +411,7 @@ def GMAT_Files(Inputs):
 
     print(f"Script GMAT con estaciones terrestres en el Atlántico generado: {output_file}")
 
+    
 
     # Ruta al archivo .exe
     exe_path = Inputs["GMAT.exe path:"] #r"D:\Escritorio V2\aerocosas\MUSE\GMAT\bin\GMAT.exe"
@@ -335,8 +423,27 @@ def GMAT_Files(Inputs):
         subprocess.run([exe_path, "--run", script_path])
     else:
         subprocess.run([exe_path, "--minimize", "--run", "--exit", script_path])
+ 
+ # Limpiar y deduplicar reportes
+    clean_and_deduplicate_reports(reports_sat_dir, cleaned_reports_dir)
+    clean_and_deduplicate_reports(reports_iot_dir, cleaned_reports_dir)
 
+    print(f"Reportes limpios disponibles en: {cleaned_reports_dir}")
+
+ 
+    
     print('END OF EXECUTION')
+
+def generate_gmat_script(Inputs, output_file):
+    """
+    Genera el script GMAT basado en los parámetros proporcionados por el usuario.
+    Esta función contiene el código existente para la configuración de satélites,
+    estaciones y propagadores.
+    """
+    # Aquí incluirás todo tu código de generación del script Atlantis.script,
+    # incluyendo satélites, estaciones terrestres, y configuración de GMAT.
+    pass
+
 
 def convert_to_utcgregorian(date_str):
     """

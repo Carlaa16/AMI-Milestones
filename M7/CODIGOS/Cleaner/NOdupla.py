@@ -34,15 +34,15 @@ def remove_duplicates_in_file(input_path, replacements, output_path):
 
 if __name__ == "__main__":
     # Carpeta donde están los archivos originales
-    input_folder = r"C:\Users\carla\OneDrive\Documentos\MUSE\ISG\CODIGOS\CleanClean"
+    input_folder = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS"
     
     # Carpeta para guardar los archivos limpiados
-    output_folder = r"C:\Users\carla\OneDrive\Documentos\MUSE\ISG\CODIGOS\Nodupla"
+    output_folder = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS"
     os.makedirs(output_folder, exist_ok=True)
     print(f"Carpeta de salida creada/verificada: {output_folder}")
     
     # Patrón para buscar archivos
-    file_pattern = os.path.join(input_folder, "sat_*_File.txt")
+    file_pattern = os.path.join(input_folder, "IoT_Final.txt")
     
     # Lista de archivos que coinciden con el patrón
     files = glob.glob(file_pattern)
@@ -63,7 +63,7 @@ if __name__ == "__main__":
         # Procesar cada archivo
         for input_file in files:
             # Define el nombre del archivo de salida en la carpeta nueva
-            output_file = os.path.join(output_folder, os.path.basename(input_file).replace("ReportFile", "Cleaned"))
+            output_file = os.path.join(output_folder, os.path.basename(input_file).replace("Final", "Cleaned"))
             print(f"Procesando {input_file} -> {output_file}")
             
             # Llama a la función para procesar el archivo

@@ -30,10 +30,10 @@ def replace_in_file(input_path, replacements, output_path):
 
 if __name__ == "__main__":
     # Carpeta donde están los archivos originales
-    input_folder = r"C:\Users\carla\OneDrive\Documentos\MUSE\ISG\CODIGOS\CleanReports"
+    input_folder = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\CleanClean"
     
     # Carpeta donde se guardarán los archivos procesados
-    output_folder = r"C:\Users\carla\OneDrive\Documentos\MUSE\ISG\CODIGOS\CleanClean"
+    output_folder = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS"
     
     # Verifica si el directorio de salida existe, si no lo crea
     if not os.path.exists(output_folder):
@@ -43,8 +43,7 @@ if __name__ == "__main__":
         print(f"Carpeta de salida ya existe: {output_folder}")
     
     # Patrón para buscar archivos
-    file_pattern = os.path.join(input_folder, "sat_*_Output.txt")
-    
+    file_pattern = os.path.join(input_folder, "IoT_Clean.txt")
     # Lista de archivos que coinciden con el patrón
     files = glob.glob(file_pattern)
     print(f"Archivos encontrados: {files}")
@@ -64,7 +63,7 @@ if __name__ == "__main__":
         # Define el nombre del archivo de salida en la carpeta de salida
         output_file = os.path.join(
             output_folder, 
-            os.path.basename(input_file).replace("Output", "File")
+            os.path.basename(input_file).replace("Clean", "Final")
         )
         
         # DEBUG: Muestra las rutas para confirmar
