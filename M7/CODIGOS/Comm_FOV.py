@@ -81,16 +81,16 @@ def generate_device_coverage_circle(lat, lon, radius_km, num_points=100):
 beamwidth = 5  # Ajusta este valor según sea necesario
 
 
-sat_files_dir = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\Nodupla"
+sat_files_dir = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\CleanedReports"
 
 all_satellite_data = pd.DataFrame()
 
-iot_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\IoT_Cleaned.txt"
+iot_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\CleanedReports\cleaned_IoT_ReportFile.txt"
 encoding = detect_file_encoding(iot_file)
 
 # Leer datos de todos los satélites (del 1 al 22)
-for sat_num in range(10):  # Cambiar el rango si tienes más o menos satélites
-    sat_file = os.path.join(sat_files_dir, f"sat_{sat_num}_Cleaned.txt")
+for sat_num in range(1):  # Cambiar el rango si tienes más o menos satélites
+    sat_file = os.path.join(sat_files_dir, f"cleaned_sat_{sat_num}_ReportFile.txt")
     
     # Verifica si el archivo existe
     if not os.path.exists(sat_file):
@@ -189,9 +189,50 @@ resultados = []
 for _, device in iot_df.iterrows():
     radius_km = calculate_device_coverage_radius(beamwidth)
     circle_lat, circle_lon = generate_device_coverage_circle(device['lat'], device['lon'], radius_km)
-    ax.plot(circle_lon, circle_lat, color='blue', linewidth=1.5, label=f'Cobertura IoT {device["id"]}')  # Borde del círculo
-    ax.fill(circle_lon, circle_lat, color='blue', alpha=0.2)  # Relleno del círculo
+    ax.plot(circle_lon, circle_lat, color='red', linewidth=1.5, label=f'Cobertura IoT {device["id"]}')  # Borde del círculo
+    ax.fill(circle_lon, circle_lat, color='red', alpha=0.2)  # Relleno del círculo
 
+# Procesar todos los satélites y generar trazas y coberturas
+# for sat_id in all_satellite_data['satellite_id'].unique():
+#     # Filtrar datos del satélite actual
+#     sat_data = all_satellite_data[all_satellite_data['satellite_id'] == sat_id]
+    
+#     # Generar trazas y coberturas
+#     for _, sat in sat_data.iterrows():
+#         lat, lon, alt, fov_angle = sat['Latitude'], sat['Longitude'], sat['alt'], sat['fov_angle']
+#         radius_deg = calculate_fov_radius(alt, fov_angle)  # Calcular radio en grados geográficos
+
+#         # Generar puntos del círculo
+#         num_points = 100
+#         angles = np.linspace(0, 2 * np.pi, num_points)
+#         circle_points_lon = lon + radius_deg * np.cos(angles)
+#         circle_points_lat = lat + radius_deg * np.sin(angles)
+
+#         # Dibujar la cobertura
+#         ax.fill(circle_points_lon, circle_points_lat, color='pink', alpha=0.3)
+#         ax.plot(circle_points_lon, circle_points_lat, color='black', linewidth=1)
+
+#         # Verificar dispositivos IoT dentro del FOV
+#         fov_polygon = Polygon(zip(circle_points_lon, circle_points_lat))
+#         for _, device in iot_df.iterrows():
+#             device_point = Point(device['lon'], device['lat'])
+#             if fov_polygon.contains(device_point):
+#                 distance_km = np.sqrt((R_EARTH + alt)**2 - R_EARTH**2)
+#                 free_space_loss_db = calculate_free_space_loss(distance_km, frequency_mhz)
+#                 received_power_dbm = calculate_received_power(
+#                     transmitter_power_dbm,
+#                     transmitter_gain_db,
+#                     receiver_gain_db,
+#                     free_space_loss_db
+#                 )
+#                 snr_db = calculate_snr(received_power_dbm, bandwidth_hz)
+#                 resultados.append({
+#                     "Satélite": sat_id,
+#                     "Dispositivo IoT": device['id'],
+#                     "Distancia (km)": distance_km,
+#                     "SNR (dB)": snr_db,
+#                     "Potencia Recibida (dBm)": received_power_dbm
+#                 })
 # Animar el movimiento dinámico
 for index, sat in all_satellite_data.iterrows():
     lat, lon, alt, fov_angle = sat['Latitude'], sat['Longitude'], sat['alt'], sat['fov_angle']
@@ -240,6 +281,7 @@ for index, sat in all_satellite_data.iterrows():
             print(dispositivo)
     # Pausar para mostrar el movimiento
     plt.pause(0.01)  # Cambia el tiempo de pausa según sea necesario
+
 # Crear un DataFrame con los resultados
 df_resultados = pd.DataFrame(resultados)
 
