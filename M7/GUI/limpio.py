@@ -1,6 +1,9 @@
 import numpy as np
-from shapely.geometry import Point
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from shapely.geometry import Point, Polygon
 import geopandas as gpd
+import pandas as pd
 import os
 import subprocess
 import sys
@@ -17,7 +20,6 @@ def create_directories_if_not_exist(directories):
             os.makedirs(directory)
             print(f"Directorio creado: {directory}")
 
-
 def clear_directory(directory_path):
     """
     Elimina todos los archivos en un directorio, pero no elimina el directorio en sí.
@@ -28,7 +30,6 @@ def clear_directory(directory_path):
             if os.path.isfile(file_path):
                 os.remove(file_path)
                 #print(f"Archivo eliminado: {file_path}")
-
 
 def verify_reports_generated(report_dirs):
     """
@@ -68,7 +69,6 @@ def clean_and_deduplicate_report(input_file, output_file, space_width=4):
         print(f"Reporte limpio guardado en: {output_file}")
     except Exception as e:
         print(f"Error al procesar {input_file}: {e}")
-
 
 def clean_and_deduplicate_reports(source_dir, cleaned_dir, space_width=4):
     """

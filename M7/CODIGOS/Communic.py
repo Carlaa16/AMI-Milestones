@@ -117,7 +117,7 @@ iot_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIG
 background_image_path = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\Atlantis.png"
 
 # Cargar datos
-num_sats = 5
+num_sats = 13
 all_satellite_data = load_satellite_data(sat_files_dir, num_sats)
 iot_df = load_iot_data(iot_file)
 
@@ -209,6 +209,28 @@ else:
             # Dibujar la cobertura del satélite
             ax.fill(circle_points_lon, circle_points_lat, color=color, alpha=0.3, label=f'Satélite {sat_id}')
             ax.plot(circle_points_lon, circle_points_lat, color='black', linewidth=1)
+
+            # Verificar dispositivos IoT dentro del FOV
+            fov_polygon = Polygon(zip(circle_points_lon, circle_points_lat))
+            for _, device in iot_df.iterrows():
+                device_point = Point(device['lon'], device['lat'])
+                if fov_polygon.contains(device_point):
+                    distance_km = np.sqrt((R_EARTH + alt)**2 - R_EARTH**2)
+                    free_space_loss_db = calculate_free_space_loss(distance_km, frequency_mhz)
+                    received_power_dbm = calculate_received_power(
+                        transmitter_power_dbm,
+                        transmitter_gain_db,
+                        receiver_gain_db,
+                        free_space_loss_db
+                    )
+                    snr_db = calculate_snr(received_power_dbm, bandwidth_hz)
+                    resultados.append({
+                        "Satélite": sat_id,
+                        "Dispositivo IoT": device['id'],
+                        "Distancia (km)": distance_km,
+                        "SNR (dB)": snr_db,
+                        "Potencia Recibida (dBm)": received_power_dbm
+                    })
 
 # Crear un DataFrame con los resultados
 df_resultados = pd.DataFrame(resultados)
