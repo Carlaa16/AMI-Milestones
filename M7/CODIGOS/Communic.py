@@ -261,7 +261,7 @@ num_sats = len(all_satellite_data['satellite_id'].unique())  # Número de satél
 cmap = cm.get_cmap('tab10', num_sats)  # Usar una paleta predefinida con 'num_sats' colores
 
 # Configuración: elegir si los satélites se muestran de golpe o animados
-animated = False  # Cambia a True para mostrar los satélites uno por uno
+animated = True  # Cambia a True para mostrar los satélites uno por uno
 
 # Crear la figura y el eje
 fig, ax = plt.subplots(figsize=(15, 8))
