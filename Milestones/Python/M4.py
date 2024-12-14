@@ -224,7 +224,7 @@ Método de Crank-Nicolson:
     que reduce los errores de fase.
 
 Ejemplo de Análisis Numérico
-Supongamos que resolvemos el oscilador lineal (\ddot{x} + x = 0) con diferentes métodos y 
+Supongamos que resolvemos el oscilador lineal  con diferentes métodos y 
 comparamos los resultados:
 """
 

@@ -1,4 +1,5 @@
 import numpy as np
+from math import radians, sin, cos, sqrt, atan2
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from shapely.geometry import Point, Polygon
@@ -56,23 +57,6 @@ def generate_device_coverage_circle(lat, lon, radius_km, num_points=100):
 ############################################################################################################
 
 # Función para calcular pérdidas por propagación libre
-def calculate_free_space_loss(distance_km, frequency_mhz):
-    distance_m = distance_km * 1e3  # Convertir km a metros
-    frequency_hz = frequency_mhz * 1e6  # Convertir MHz a Hz
-    loss_db = 20 * np.log10(distance_m) + 20 * np.log10(frequency_hz) - 20 * np.log10(C / (4 * np.pi))
-    return loss_db
-
-# Función para calcular potencia recibida
-def calculate_received_power(transmitter_power_dbm, transmitter_gain_db, receiver_gain_db, free_space_loss_db, other_losses_db=0):
-    received_power_dbm = transmitter_power_dbm + transmitter_gain_db + receiver_gain_db - free_space_loss_db - other_losses_db
-    return received_power_dbm
-
-# Función para calcular SNR
-def calculate_snr(received_power_dbm, bandwidth_hz, temperature_k=290):
-    noise_power_dbm = 10 * np.log10(K * temperature_k * bandwidth_hz * 1000)  # Convertir ruido a dBm
-    snr_db = received_power_dbm - noise_power_dbm
-    return snr_db
-
 def free_space_loss(frequency_hz, distance_km):
     distance_m = distance_km * 1e3
     return 20 * np.log10(distance_m) + 20 * np.log10(frequency_hz) - 20 * np.log10(C / (4 * np.pi))
@@ -99,80 +83,6 @@ def calculate_eb_no(eirp_dbw, losses_db, rx_gain_db, system_noise_temp_k, data_r
     log_t_s = 10 * np.log10(system_noise_temp_k)
     log_r = 10 * np.log10(data_rate_bps)
     return eirp_dbw - losses_db + rx_gain_db + 228.6 - log_t_s - log_r
-
-# Uplink: Cálculo específico
-uplink_tx_power_dbw, uplink_eirp = adjust_tx_power(
-    tx_power_dbw=20 - 30,  # Potencia inicial del transmisor en dBW
-    use_amplifier=False,
-    amplifier_gain_db=20,
-    amplifier_losses_db=1,
-    antenna_gain_db=12.5,
-    cable_losses_db=2,
-    max_eirp_dbw=20 - 30,
-)
-
-uplink_losses_db = (
-    free_space_loss(frequency_hz=2.4e9, distance_km=850) + 2  # Pérdidas adicionales
-)
-
-uplink_free_space_loss = free_space_loss(frequency_hz=2.4e9, distance_km=850)
-
-uplink_eb_no = calculate_eb_no(
-    eirp_dbw=uplink_eirp,
-    losses_db=uplink_losses_db,
-    rx_gain_db=6.5,
-    system_noise_temp_k=615,
-    data_rate_bps=1200,
-)
-
-# Downlink: Cálculo específico
-downlink_tx_power_dbw, downlink_eirp = adjust_tx_power(
-    tx_power_dbw=12.5 - 30,  # Potencia inicial del transmisor en dBW
-    use_amplifier=False,
-    amplifier_gain_db=20,
-    amplifier_losses_db=2,
-    antenna_gain_db=6.5,
-    cable_losses_db=1,
-    max_eirp_dbw=20 - 30,
-)
-
-downlink_losses_db = (
-    free_space_loss(frequency_hz=2.5e9, distance_km=850) + 2  # Pérdidas adicionales
-)
-
-downlink_free_space_loss = free_space_loss(frequency_hz=2.5e9, distance_km=850)
-
-downlink_eb_no = calculate_eb_no(
-    eirp_dbw=downlink_eirp,
-    losses_db=downlink_losses_db,
-    rx_gain_db=12,
-    system_noise_temp_k=135,
-    data_rate_bps=100,
-)
-
-# Resultados
-df_results = pd.DataFrame([
-    {
-        "Enlace": "Uplink",
-        "Tx Power (dBW)": uplink_tx_power_dbw,
-        "EIRP (dBW)": uplink_eirp,
-        "Free Space Loss (dB)": uplink_free_space_loss,
-        "Eb/No (dB)": uplink_eb_no,
-    },
-    {
-        "Enlace": "Downlink",
-        "Tx Power (dBW)": downlink_tx_power_dbw,
-        "EIRP (dBW)": downlink_eirp,
-        "Free Space Loss (dB)": downlink_free_space_loss,
-        "Eb/No (dB)": downlink_eb_no,
-    },
-])
-
-# Exportar resultados
-output_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\uplink_downlink.xlsx"
-df_results.to_excel(output_file, index=False)
-
-print(f"Resultados del cálculo guardados en {output_file}")
 
 
 ############################################################################################################
@@ -246,13 +156,18 @@ if iot_df.empty:
 all_satellite_data['alt'] = 850  # Altitud en km
 all_satellite_data['fov_angle'] = 100  # Ángulo de visión en grados
 
+frequency_hz = 2.4e9  # Frecuencia en Hz
+tx_power_dbw = 20 - 30  # Potencia inicial del transmisor en dBW
+use_amplifier = False  # Usar amplificador (True o False)
+amplifier_gain_db = 20  # Ganancia del amplificador en dB
+amplifier_losses_db = 1  # Pérdidas del amplificador en dB
+antenna_gain_db = 12.5  # Ganancia de la antena en dB
+cable_losses_db = 2  # Pérdidas por cable en dB
+max_eirp_dbw = 14 - 30  # EIRP máximo permitido
+rx_gain_db = 6.5  # Ganancia del receptor en dB
+system_noise_temp_k = 615  # Temperatura de ruido del sistema en Kelvin
+data_rate_bps = 1200  # Tasa de datos en bps
 
-# Parámetros de enlace
-transmitter_power_dbm = 14  # Potencia del transmisor en dBm
-transmitter_gain_db = 2  # Ganancia de la antena transmisora en dB
-receiver_gain_db = 20  # Ganancia de la antena receptora en dB
-bandwidth_hz = 125e3  # Ancho de banda en Hz
-frequency_mhz = 868  # Frecuencia en MHz
 
 resultados = []
 
@@ -260,8 +175,30 @@ resultados = []
 num_sats = len(all_satellite_data['satellite_id'].unique())  # Número de satélites únicos
 cmap = cm.get_cmap('tab10', num_sats)  # Usar una paleta predefinida con 'num_sats' colores
 
+def calculate_3d_distance(lat1, lon1, alt1, lat2, lon2, alt2):
+    """
+    Calcula la distancia 3D entre dos puntos considerando latitud, longitud y altitud.
+    """
+    # Convertir grados a radianes
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+
+    # Diferencias entre las coordenadas
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    # Fórmula de haversine para calcular la distancia en superficie
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    surface_distance_km = R_EARTH * c  # Distancia en km en la superficie
+
+    # Incorporar altitud para obtener la distancia 3D
+    total_distance_km = sqrt(surface_distance_km**2 + (alt1 - alt2)**2)
+    return total_distance_km
+
+
 # Configuración: elegir si los satélites se muestran de golpe o animados
-animated = False  # Cambia a True para mostrar los satélites uno por uno
+# Configuración: elegir si los satélites se muestran de golpe o animados
+animated = True  # Cambia a True para mostrar los satélites uno por uno
 
 # Crear la figura y el eje
 fig, ax = plt.subplots(figsize=(15, 8))
@@ -282,68 +219,87 @@ for _, device in iot_df.iterrows():
     ax.plot(circle_lon, circle_lat, color='red', linewidth=1.5, label=f'Cobertura IoT {device["id"]}')  # Borde del círculo
     ax.fill(circle_lon, circle_lat, color='red', alpha=0.2)  # Relleno del círculo
 
-# Animar el movimiento dinámico o procesar todo de golpe según el modo
-if animated:
-    print("Modo animado: los satélites se mostrarán uno por uno.")
-    for index, sat in all_satellite_data.iterrows():
+# Procesar los satélites (modo estático o animado)
+print("Modo estático: todos los satélites se mostrarán de golpe.")
+for sat_id in all_satellite_data['satellite_id'].unique():
+    sat_data = all_satellite_data[all_satellite_data['satellite_id'] == sat_id]
+    color = cmap(sat_id % num_sats)  # Color único para cada satélite
+
+    for _, sat in sat_data.iterrows():
         lat, lon, alt, fov_angle = sat['Latitude'], sat['Longitude'], sat['alt'], sat['fov_angle']
-        radius_deg = calculate_fov_radius(alt, fov_angle)  # Calcular radio en grados geográficos
-        
+
+        # Calcular el radio del FOV en kilómetros
+        fov_radius_km = calculate_fov_radius(alt, fov_angle)
         # Generar puntos del círculo
+        # Generar puntos del círculo del FOV
         num_points = 100
         angles = np.linspace(0, 2 * np.pi, num_points)
-        circle_points_lon = lon + radius_deg * np.cos(angles)
-        circle_points_lat = lat + radius_deg * np.sin(angles)
+        circle_points_lat = lat + fov_radius_km * np.sin(angles)
+        circle_points_lon = lon + fov_radius_km * np.cos(angles)
 
-        # Asignar un color único basado en el ID del satélite
-        color = cmap(sat['satellite_id'] % num_sats)
+        # Dibujar la cobertura del satélite
+        ax.fill(circle_points_lon, circle_points_lat, color=color, alpha=0.3, label=f'Satélite {sat_id}')
+        ax.plot(circle_points_lon, circle_points_lat, color='black', linewidth=1)
 
-        # Dibujar el círculo con relleno y borde
-        fov_fill = ax.fill(circle_points_lon, circle_points_lat, color=color, alpha=0.5)[0]  # Relleno
-        fov_border, = ax.plot(circle_points_lon, circle_points_lat, color='black', linewidth=1)  # Borde negro
+        # Dibujar la cobertura del satélite
+        ax.fill(circle_points_lon, circle_points_lat, color=color, alpha=0.3, label=f'Satélite {sat_id}')
+        ax.plot(circle_points_lon, circle_points_lat, color='black', linewidth=1)
 
-        # Pausar para mostrar el movimiento
-        plt.pause(0.05)  # Cambia el tiempo de pausa según sea necesario
-else:
-    print("Modo estático: todos los satélites se mostrarán de golpe.")
-    for sat_id in all_satellite_data['satellite_id'].unique():
-        sat_data = all_satellite_data[all_satellite_data['satellite_id'] == sat_id]
-        color = cmap(sat_id % num_sats)  # Color único para cada satélite
-        for _, sat in sat_data.iterrows():
-            lat, lon, alt, fov_angle = sat['Latitude'], sat['Longitude'], sat['alt'], sat['fov_angle']
-            radius_deg = calculate_fov_radius(alt, fov_angle)  # Calcular radio en grados geográficos
+        # Verificar dispositivos IoT dentro del FOV
+        fov_polygon = Polygon(zip(circle_points_lon, circle_points_lat))
+        for _, device in iot_df.iterrows():
+            device_point = Point(device['lon'], device['lat'])
+            if fov_polygon.contains(device_point):
+                distance_km = np.sqrt((R_EARTH + alt)**2 - R_EARTH**2)
 
-            # Generar puntos del círculo
-            num_points = 100
-            angles = np.linspace(0, 2 * np.pi, num_points)
-            circle_points_lon = lon + radius_deg * np.cos(angles)
-            circle_points_lat = lat + radius_deg * np.sin(angles)
+                # Uplink: calcular parámetros y Eb/No
+                uplink_tx_power_dbw, uplink_eirp = adjust_tx_power(
+                    tx_power_dbw=20 - 30,  # Potencia inicial del transmisor en dBW
+                    use_amplifier=False,
+                    amplifier_gain_db=20,
+                    amplifier_losses_db=1,
+                    antenna_gain_db=12.5,
+                    cable_losses_db=2,
+                    max_eirp_dbw=20 - 30,
+                )
+                uplink_losses_db = free_space_loss(frequency_hz=2.4e9, distance_km=distance_km) + 2
+                eb_no_uplink = calculate_eb_no(
+                    eirp_dbw=uplink_eirp,
+                    losses_db=uplink_losses_db,
+                    rx_gain_db=6.5,
+                    system_noise_temp_k=615,
+                    data_rate_bps=600,
+                )
 
-            # Dibujar la cobertura del satélite
-            ax.fill(circle_points_lon, circle_points_lat, color=color, alpha=0.3, label=f'Satélite {sat_id}')
-            ax.plot(circle_points_lon, circle_points_lat, color='black', linewidth=1)
+                # Downlink: calcular parámetros y Eb/No
+                downlink_tx_power_dbw, downlink_eirp = adjust_tx_power(
+                    tx_power_dbw=12.5 - 30,  # Potencia inicial del transmisor en dBW
+                    use_amplifier=False,
+                    amplifier_gain_db=20,
+                    amplifier_losses_db=2,
+                    antenna_gain_db=6.5,
+                    cable_losses_db=1,
+                    max_eirp_dbw=20 - 30,
+                )
+                downlink_losses_db = free_space_loss(frequency_hz=2.5e9, distance_km=distance_km) + 2
+                eb_no_downlink = calculate_eb_no(
+                    eirp_dbw=downlink_eirp,
+                    losses_db=downlink_losses_db,
+                    rx_gain_db=12,
+                    system_noise_temp_k=135,
+                    data_rate_bps=100,
+                )
 
-            # Verificar dispositivos IoT dentro del FOV
-            fov_polygon = Polygon(zip(circle_points_lon, circle_points_lat))
-            for _, device in iot_df.iterrows():
-                device_point = Point(device['lon'], device['lat'])
-                if fov_polygon.contains(device_point):
-                    distance_km = np.sqrt((R_EARTH + alt)**2 - R_EARTH**2)
-                    free_space_loss_db = calculate_free_space_loss(distance_km, frequency_mhz)
-                    received_power_dbm = calculate_received_power(
-                        transmitter_power_dbm,
-                        transmitter_gain_db,
-                        receiver_gain_db,
-                        free_space_loss_db
-                    )
-                    snr_db = calculate_snr(received_power_dbm, bandwidth_hz)
-                    resultados.append({
-                        "Satélite": sat_id,
-                        "Dispositivo IoT": device['id'],
-                        "Distancia (km)": distance_km,
-                        "SNR (dB)": snr_db,
-                        "Potencia Recibida (dBm)": received_power_dbm
-                    })
+                # Guardar resultados para uplink y downlink
+                resultados.append({
+                    "Satélite": sat_id,
+                    "Dispositivo IoT": device['id'],
+                    "Distancia (km)": distance_km,
+                    "Uplink Eb/No (dB)": eb_no_uplink,
+                    "Downlink Eb/No (dB)": eb_no_downlink,
+                    "Uplink EIRP (dBW)": uplink_eirp,
+                    "Downlink EIRP (dBW)": downlink_eirp,
+                })
 
 # Crear un DataFrame con los resultados
 df_resultados = pd.DataFrame(resultados)
@@ -353,8 +309,6 @@ output_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CO
 df_resultados.to_excel(output_file, index=False)
 
 print(f"Los resultados se han guardado en {output_file}")
-
-
 
 # Mostrar la figura final
 plt.show()
