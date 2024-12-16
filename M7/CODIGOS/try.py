@@ -1,5 +1,5 @@
 import numpy as np
-from math import radians, sin, cos, sqrt, atan2
+from math import radians, sin, cos, sqrt, atan2, acos, degrees
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from shapely.geometry import Point, Polygon
@@ -40,8 +40,8 @@ def cartesian_to_geographic(x, y, z):
     return lat, lon
 
 # Función para calcular el radio de cobertura de dispositivos IoT
-def calculate_device_coverage_radius(beamwidth_deg):
-    beamwidth_rad = np.radians(beamwidth_deg)
+def calculate_device_coverage_radius(beamwidth):
+    beamwidth_rad = np.radians(beamwidth)
     radius_km = R_EARTH * np.tan(beamwidth_rad / 2)
     return radius_km
 
@@ -83,12 +83,48 @@ def calculate_eb_no(eirp_dbw, losses_db, rx_gain_db, system_noise_temp_k, data_r
     log_r = 10 * np.log10(data_rate_bps)
     return eirp_dbw - losses_db + rx_gain_db + 228.6 - log_t_s - log_r
 
+def calculate_visibility_time(satellite_positions, iot_lat, iot_lon, beamwidth_deg, timestep_seconds):
+    """
+    Calcula el tiempo total durante el cual un satélite está dentro del beamwidth de un dispositivo IoT.
+    
+    Parámetros:
+    - satellite_positions: Lista de posiciones del satélite (latitud y longitud) en cada instante de tiempo.
+    - iot_lat, iot_lon: Latitud y longitud del dispositivo IoT.
+    - beamwidth_deg: Apertura angular del beamwidth en grados.
+    - timestep_seconds: Intervalo de tiempo entre las posiciones del satélite, en segundos.
+    
+    Retorna:
+    - Tiempo total (en segundos) en el que el satélite está dentro del beamwidth.
+    """
+    total_time = 0
+    beamwidth_rad = radians(beamwidth_deg) / 2  # Convertimos el beamwidth a radianes (dividido por 2)
+    
+    for i in range(len(satellite_positions) - 1):
+        sat_lat, sat_lon = satellite_positions[i]
+        
+        # Convertir las coordenadas a radianes
+        sat_lat_rad, sat_lon_rad = radians(sat_lat), radians(sat_lon)
+        iot_lat_rad, iot_lon_rad = radians(iot_lat), radians(iot_lon)
+        
+        # Calcular el ángulo angular usando la fórmula esférica
+        delta_lon = sat_lon_rad - iot_lon_rad
+        cos_angle = (
+            sin(sat_lat_rad) * sin(iot_lat_rad) +
+            cos(sat_lat_rad) * cos(iot_lat_rad) * cos(delta_lon)
+        )
+        angle = acos(min(1, max(-1, cos_angle)))  # Proteger contra valores fuera del rango [-1, 1]
+
+        # Si el ángulo está dentro del beamwidth, acumulamos el tiempo
+        if angle <= beamwidth_rad:
+            total_time += timestep_seconds
+
+    return total_time
+
 import numpy as np
 from math import radians, sin, cos, sqrt, acos, degrees
 import pandas as pd
 
-# Parámetros de la Tierra
-R_EARTH = 6371  # Radio de la Tierra en km
+
 
 
 ############################################################################################################
@@ -147,7 +183,7 @@ iot_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIG
 background_image_path = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\Atlantis.png"
 
 # Cargar datos
-num_sats = 12
+num_sats = 1
 all_satellite_data = load_satellite_data(sat_files_dir, num_sats)
 iot_df = load_iot_data(iot_file)
 
@@ -199,12 +235,12 @@ plt.ylabel("Latitud")
 background = plt.imread(background_image_path)
 ax.imshow(background, extent=[-180, 180, -90, 90], aspect='auto')
 
-# Dibujar las coberturas IoT con círculos más definidos (independiente del modo)
-for _, device in iot_df.iterrows():
-    radius_km = calculate_device_coverage_radius(beamwidth)
-    circle_lat, circle_lon = generate_device_coverage_circle(device['lat'], device['lon'], radius_km)
-    ax.plot(circle_lon, circle_lat, color='red', linewidth=1.5, label=f'Cobertura IoT {device["id"]}')  # Borde del círculo
-    ax.fill(circle_lon, circle_lat, color='red', alpha=0.2)  # Relleno del círculo
+# # Dibujar las coberturas IoT con círculos más definidos (independiente del modo)
+# for _, device in iot_df.iterrows():
+#     radius_km = calculate_device_coverage_radius(beamwidth)
+#     circle_lat, circle_lon = generate_device_coverage_circle(device['lat'], device['lon'], radius_km)
+#     ax.plot(circle_lon, circle_lat, color='red', linewidth=1.5, label=f'Cobertura IoT {device["id"]}')  # Borde del círculo
+#     ax.fill(circle_lon, circle_lat, color='red', alpha=0.2)  # Relleno del círculo
 
 if animated:    # Procesar los satélites (modo estático o animado)
     print("Modo animado: los satélites se mostrarán uno por uno.")
@@ -232,6 +268,12 @@ else:
     for sat_id in all_satellite_data['satellite_id'].unique():
         sat_data = all_satellite_data[all_satellite_data['satellite_id'] == sat_id]
         color = cmap(sat_id % num_sats)  # Color único para cada satélite
+        
+        # Extraer posiciones del satélite [(lat, lon, alt), ...]
+        satellite_positions = list(zip(sat_data['Latitude'], sat_data['Longitude'], sat_data['alt']))
+        timestep_seconds = 10  # Ajusta esto al tiempo entre muestras de GMAT
+
+        
 
         for _, sat in sat_data.iterrows():
             lat, lon, alt, fov_angle = sat['Latitude'], sat['Longitude'], sat['alt'], sat['fov_angle']
@@ -265,7 +307,9 @@ else:
 
                 # Calcular la distancia máxima de Uplink (FOV/Beamwidth del IoT)
                 max_uplink_distance = (R_EARTH + alt) / cos(radians(beamwidth / 2))
-
+                
+                
+                
                 if fov_polygon.contains(device_point):
                     
 
@@ -286,7 +330,7 @@ else:
                         losses_db=uplink_losses_db,
                         rx_gain_db=6.5,
                         system_noise_temp_k=615,
-                        data_rate_bps=600,
+                        data_rate_bps=500,
                     )
 
                     # Downlink: calcular parámetros y Eb/No

@@ -102,7 +102,7 @@ df_results = pd.DataFrame([
 ])
 
 # Exportar resultados
-output_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\ISG\CODIGOS\uplink_downlink.xlsx"
+output_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CODIGOS\uplink_downlink.xlsx"
 df_results.to_excel(output_file, index=False)
 
 print(f"Resultados del cálculo guardados en {output_file}")
