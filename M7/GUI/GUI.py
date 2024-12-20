@@ -11,7 +11,12 @@ class GMATGUI(Widget.QMainWindow):
         current_path = os.path.dirname(__file__)
         logo_path = os.path.join(current_path, "Header.png")
         self.setWindowTitle("GMAT Interface")
-        self.setGeometry(100, 100, 600, 400)
+        self.setGeometry(100, 100, 500, 400)
+
+        # Establecer un tamaño mínimo y máximo
+        self.setMinimumSize(1000, 900)  # Tamaño mínimo para asegurar la visibilidad de todos los elementos
+        self.setMaximumSize(1920, 1080)
+
         self.setWindowIcon(Gui.QIcon(logo_path)) 
         
         # Fondo y estilo general
@@ -64,7 +69,7 @@ class GMATGUI(Widget.QMainWindow):
         """)
 
         # Título
-        self.title_label = Widget.QLabel("Definir Variables para GMAT")
+        self.title_label = Widget.QLabel("Configuración de la misión")
         self.title_label.setFont(Gui.QFont("Arial", 22, Gui.QFont.Bold))
         self.title_label.setAlignment(Core.Qt.AlignCenter)
         self.title_label.setStyleSheet("color: #2d3436; margin-bottom: 20px;")
@@ -74,7 +79,7 @@ class GMATGUI(Widget.QMainWindow):
         self.logo_pixmap = Gui.QPixmap(logo_path)
 
         if self.logo_pixmap.isNull():
-            print("El logo no se pudo cargar. Verifica la ruta.")
+            print(f"El logo no se pudo cargar. Verifica la ruta {logo_path}.")
         else:
             self.logo_label.setPixmap(self.logo_pixmap)
             self.logo_label.setAlignment(Core.Qt.AlignCenter)
@@ -84,59 +89,132 @@ class GMATGUI(Widget.QMainWindow):
         self.main_layout.addWidget(self.title_label)
         self.main_layout.addWidget(self.logo_label)
         self.main_layout.setContentsMargins(30, 30, 30, 30)
+        self.main_layout.setSpacing(5)
+        self.main_layout.setAlignment(Core.Qt.AlignTop)
 
         # Layout para los campos principales y las opciones adicionales (horizontal)
         self.fields_layout = Widget.QHBoxLayout()
 
-        # Layout para más opciones (inicialmente oculto)
-        self.more_options_layout = Widget.QVBoxLayout()
-        self.more_options_layout.setContentsMargins(30, 10, 30, 10)
+        # Layout para parámetros orbitales (inicialmente oculto)
+        self.orbits_layout = Widget.QVBoxLayout()
+        self.orbits_layout.setContentsMargins(30, 10, 30, 10)
+
+        # Botón de "Parámetros orbitales"
+        self.orbits_button = Widget.QPushButton("Parámetros orbitales")
+        self.orbits_button.clicked.connect(lambda: self.toggle_options(self.orbits_layout, self.orbits_button))
+
+        self.comms_sat_layout = Widget.QVBoxLayout()
+        self.comms_sat_layout.setContentsMargins(30, 10, 30, 10)
+
+        self.comms_sat_button = Widget.QPushButton("Comunicaciones (satélite)")
+        self.comms_sat_button.clicked.connect(lambda: self.toggle_options(self.comms_sat_layout, self.comms_sat_button))
+
+        self.comms_iot_layout = Widget.QVBoxLayout()
+        self.comms_iot_layout.setContentsMargins(30, 10, 30, 10)
+
+        self.comms_iot_button = Widget.QPushButton("Comunicaciones (estación)")
+        self.comms_iot_button.clicked.connect(lambda: self.toggle_options(self.comms_iot_layout, self.comms_iot_button))
+
+        self.comms_zone_layout = Widget.QVBoxLayout()
+        self.comms_zone_layout.setContentsMargins(30, 10, 30, 10)
+
+        self.comms_zone_button = Widget.QPushButton("Área de estudio")
+        self.comms_zone_button.clicked.connect(lambda: self.toggle_options(self.comms_zone_layout, self.comms_zone_button))
+
+        self.more_paths_layout = Widget.QVBoxLayout()
+        self.more_paths_layout.setContentsMargins(30, 10, 30, 10)
+
+        self.more_paths_button = Widget.QPushButton("Configuración de directorios")
+        self.more_paths_button.clicked.connect(lambda: self.toggle_options(self.more_paths_layout, self.more_paths_button))
 
         # Contenedor para los inputs
         self.inputs = {}
-        self.more_options_widgets = []
+        self.option_widgets = {}
+        self.layout_dict = {
+            self.more_paths_button: (self.more_paths_layout, "Configuración de directorios", "Ocultar configuración de directorios"),
+            self.orbits_button: (self.orbits_layout, "Parámetros orbitales", "Ocultar parámetros orbitales"),
+            self.comms_sat_button: (self.comms_sat_layout, "Comunicaciones (satélite)", "Ocultar Comunicaciones (satélite)"),
+            self.comms_iot_button: (self.comms_iot_layout, "Comunicaciones (estación)", "Ocultar Comunicaciones (estación)"),
+            self.comms_zone_button: (self.comms_zone_layout, "Área de estudio", "Ocultar área de estudio")
+                            }       
 
-        # Parametros
-        self.add_input_date("Fecha de inicio:")
-        self.add_input_decimal("SMA (Km):", initial_value="6878.0")
-        self.add_input_decimal("Excentricidad:", initial_value="0")
-        self.add_input_decimal("RAAN inicial (deg):", initial_value="0")
-        self.add_input_slider("Inclinacion (deg):", -90, 90, 10)
-        self.add_input_integer("Número de planos:", initial_value="1")
-        self.add_input_integer("Nº satelites por plano:", initial_value="1")
-        self.add_input_decimal("Duracion propagacion (dias):", initial_value="1")
-        self.add_input_integer("Número de estaciones:", initial_value="0")
-        self.add_input_dropdown("Zona a estudiar:", \
+        self.main_layout.addWidget(self.orbits_button)
+
+        self.add_input_date("Fecha de inicio:",self.orbits_layout)
+        self.add_input_decimal("SMA (Km):",self.orbits_layout, initial_value="6878.0")
+        self.add_input_decimal("Excentricidad:",self.orbits_layout, initial_value="0")
+        self.add_input_decimal("RAAN inicial (deg):",self.orbits_layout, initial_value="0")
+        self.add_input_slider("Inclinación (deg):", -90, 90, 10,self.orbits_layout)
+        self.add_input_integer("Número de planos:",self.orbits_layout, initial_value="1")
+        self.add_input_integer("Nº satélites por plano:",self.orbits_layout, initial_value="1")
+        self.add_input_decimal("Duración propagación (días):",self.orbits_layout, initial_value="1")
+        self.add_input_checkbox("Mostrar GMAT GUI",self.orbits_layout)
+
+        self.main_layout.addWidget(self.comms_sat_button)
+
+        self.add_input_slider("Ángulo de visión satélite (deg):", 0, 180, 18,self.comms_sat_layout)
+        self.add_input_decimal("Potencia transmisor satélite (dBm):",self.comms_sat_layout, initial_value="12,5")
+        self.add_input_checkbox("Usar amplificador satélite",self.comms_sat_layout)
+        self.add_input_decimal("Ganancia amplificador satélite (dB):",self.comms_sat_layout, initial_value="20")
+        self.add_input_decimal("Ganancia antena satélite (dB):",self.comms_sat_layout, initial_value="20")
+        self.add_input_integer("Tamaño mensaje satélite:",self.comms_sat_layout, initial_value="100")
+
+        self.main_layout.addWidget(self.comms_iot_button)
+
+        self.add_input_slider("Ángulo de visión estación (deg):", 0, 180, 18,self.comms_iot_layout)
+        self.add_input_decimal("Potencia transmisor estación (dBm):",self.comms_iot_layout, initial_value="12,5")
+        self.add_input_checkbox("Usar amplificador estación",self.comms_iot_layout)
+        self.add_input_decimal("Ganancia amplificador estación (dB):",self.comms_iot_layout, initial_value="20")
+        self.add_input_decimal("Ganancia antena estación (dB):",self.comms_iot_layout, initial_value="20")
+        self.add_input_integer("Tamaño mensaje estación:",self.comms_iot_layout, initial_value="10000000")
+
+        self.main_layout.addWidget(self.comms_zone_button)
+        
+        self.add_input_integer("Número de estaciones:",self.comms_zone_layout, initial_value="0")
+        self.add_input_list("Zona a estudiar:", \
                                 ["Arctic Ocean", "North Atlantic Ocean", "South Atlantic Ocean", \
                                 "North Pacific Ocean", "South Pacific Ocean", "INDIAN OCEAN", \
-                                "Mediterranean Sea"])
-        self.add_input_checkbox("Mostrar GMAT GUI")
-        #self.add_input_integer("Parámetro 3 (entero):")
-        #self.add_input_slider("Parámetro 4 (deslizable):", 0, 100, 10)
-        #self.add_input_checkbox("Activar parámetro 5")
+                                "Mediterranean Sea"],self.comms_zone_layout)
 
-        # Botón de "Más opciones"
-        self.more_options_button = Widget.QPushButton("Más opciones")
-        self.more_options_button.clicked.connect(self.toggle_more_options)
-        self.main_layout.addWidget(self.more_options_button)
+        self.main_layout.addWidget(self.more_paths_button)
 
         # Parametros más opciones
-        #self.add_input_decimal("Parámetro 6 (decimal):", self.more_options_layout)
-        #self.add_input_slider("Parámetro 7 (deslizable):", 0, 100, 10, self.more_options_layout)
-        # self.add_input_path("Ruta del archivo:", self.more_options_layout, folder_mode=False)  # Para seleccionar un archivo
-        self.add_input_path("Workspace:", self.more_options_layout, folder_mode=True, initial_value=current_path)  # Para seleccionar una carpeta
-        self.add_input_path("GMAT.exe path:", self.more_options_layout, folder_mode=False, initial_value=os.path.join(current_path,"GMAT.exe")) 
+        self.add_input_path("Workspace:", self.more_paths_layout, folder_mode=True, initial_value=current_path)
+        self.add_input_path("Output:", self.more_paths_layout, folder_mode=True, initial_value=current_path)
+        self.add_input_path("GMAT.exe path:", self.more_paths_layout, folder_mode=False, initial_value=os.path.join(current_path,"GMAT.exe")) 
 
         # Añadir los widgets adicionales al layout principal
-        self.fields_layout.addLayout(self.more_options_layout)
-  
+        self.fields_layout.addLayout(self.more_paths_layout)
+
         # Añadimos el layout de campos y el botón "Más opciones" al layout principal
         self.main_layout.addLayout(self.fields_layout)
+
+        # Añadir un espacio expansible para empujar los botones hacia abajo
+        spacer = Widget.QSpacerItem(20, 40, Widget.QSizePolicy.Minimum, Widget.QSizePolicy.Expanding)
+        self.main_layout.addItem(spacer)
 
         # Botón de Confirmación
         self.confirm_button = Widget.QPushButton("Confirmar")
         self.confirm_button.setFont(Gui.QFont("Arial", 14))
         self.main_layout.addWidget(self.confirm_button)
+
+        # Texto dinámico en la parte inferior
+        self.status_label = Widget.QLabel("Estado: Esperando acciones...")
+        self.status_label.setAlignment(Core.Qt.AlignCenter)  # Centrado horizontalmente
+        self.status_label.setStyleSheet("""
+            QLabel {
+                font-size: 12px;
+                color: #2f3640;
+                margin-top: 10px;
+            }
+        """)
+
+        # Layout para el texto dinámico
+        status_layout = Widget.QHBoxLayout()
+        status_layout.addWidget(self.status_label)
+
+        # Añadir el layout al layout principal
+        self.main_layout.addLayout(status_layout)
 
         # Crear el botón de cerrar
         self.close_button = Widget.QPushButton("Cerrar")
@@ -176,21 +254,29 @@ class GMATGUI(Widget.QMainWindow):
         self.setCentralWidget(container)
 
 
-    def toggle_more_options(self):
-        """Mostrar u ocultar los widgets adicionales a la derecha."""
-        # Comprobar si alguna opción está visible
-        widgets_visible = any(widget.isVisible() for widget in self.more_options_widgets)
+    def toggle_options(self, options_layout, options_button):
 
-        # Si están visibles, ocultamos los widgets
-        if widgets_visible:
-            for widget in self.more_options_widgets:
-                widget.setVisible(False)
-            self.more_options_button.setText("Más opciones")  # Cambiar el texto del botón
-        else:
-            # Si no están visibles, mostramos los widgets
-            for widget in self.more_options_widgets:
-                widget.setVisible(True)
-            self.more_options_button.setText("Ocultar opciones")   # Cambiar el texto del botón
+        """
+        Muestra el layout activo y oculta todos los demás layouts.
+        Actualiza el texto de los botones correspondientes.
+        """
+        # Iterar sobre todos los layouts en self.all_layouts
+        for button, (layout, inactive_text, active_text) in self.layout_dict.items():
+            widgets_visible = any(widget.isVisible() for widget in self.option_widgets[layout])
+
+            # Si están visibles, ocultamos los widgets
+            if widgets_visible:
+                for widget in self.option_widgets[layout]:
+                    widget.setVisible(False)
+                button.setText(inactive_text)
+
+            else:
+                # Si no están visibles, mostramos los widgets
+                for widget in self.option_widgets[layout]:
+                    widget.setVisible(layout == options_layout)
+                    if button == options_button: button.setText(active_text)
+            
+            
 
     def open_browser(self, browser, input_field):
         if browser:
@@ -209,31 +295,32 @@ class GMATGUI(Widget.QMainWindow):
  
         if label: 
             label.setAlignment(Core.Qt.AlignRight | Core.Qt.AlignVCenter)
-            label.setMinimumWidth(150)
+            label.setMinimumWidth(250)
             row_layout.addWidget(label)
 
         if value_label:
-            # value_label.setAlignment(Core.Qt.AlignCenter)  # Centrar la etiqueta de valor
-            # value_label.setFixedWidth(40)  # Tamaño fijo para la etiqueta de valor
             row_layout.addWidget(value_label)
             
         if field:
-            # field.setMaximumWidth(500)  # Establecer el ancho máximo
-            # field.setMinimumWidth(150)  # Establecer el ancho mínimo
             row_layout.addWidget(field)
 
-        # spacer = Widget.QSpacerItem(40, 20, Widget.QSizePolicy.Expanding, Widget.QSizePolicy.Minimum)
-        # row_layout.addItem(spacer)
         row_layout.setAlignment(Core.Qt.AlignCenter)
         target_layout = target_layout or self.main_layout
+        target_layout.setSpacing(3)
         target_layout.addLayout(row_layout)
 
     def list_more_options(self, layout, field=None, label=None, value_label=None):
 
-        if layout == self.more_options_layout:
-            if field: self.more_options_widgets.append(field); field.setVisible(False)
-            if label: self.more_options_widgets.append(label); label.setVisible(False)
-            if value_label: self.more_options_widgets.append(value_label); value_label.setVisible(False)
+        if layout != self.main_layout:
+
+            if layout not in self.option_widgets:
+                self.option_widgets[layout] = []  # Inicializar lista para este layout si no existe
+
+            # Añadir widgets al diccionario y hacerlos inicialmente invisibles
+            for widget in (field, label, value_label):
+                if widget:
+                    self.option_widgets[layout].append(widget)
+                    widget.setVisible(False)
 
 
     def add_input_decimal(self, label_text, target_layout=None, initial_value=""):
@@ -242,12 +329,12 @@ class GMATGUI(Widget.QMainWindow):
         label.setFont(Gui.QFont("Arial", 14))
         input_field = Widget.QLineEdit()
         # Configurar el validador para números decimales con punto
-        validator = Gui.QDoubleValidator(-1e10, 1e10, 9)
+        validator = Gui.QRegularExpressionValidator(Core.QRegularExpression(r"^-?\d{0,10}(,\d{0,10})?$"))
         validator.setLocale(Core.QLocale(Core.QLocale.English))  # Forzar formato con punto decimal
         input_field.setValidator(validator)
 
         input_field.setPlaceholderText("Ingrese un número decimal")
-        input_field.setText(str(initial_value))
+        input_field.setText(str(initial_value).replace(".", ","))
 
         self.add_in_layout(target_layout, input_field, label)
         self.list_more_options(target_layout, input_field, label)
@@ -323,6 +410,61 @@ class GMATGUI(Widget.QMainWindow):
         self.inputs[label_text] = slider
 
 
+    def add_input_list(self, label_text, options, target_layout=None):
+        """
+        Agregar un desplegable con buscador para seleccionar múltiples opciones.
+        
+        :param label_text: Texto descriptivo de la lista.
+        :param options: Lista de opciones disponibles.
+        :param target_layout: Layout donde agregar el widget.
+        """
+
+        # Etiqueta descriptiva
+        label = Widget.QLabel(label_text)
+        label.setFont(Gui.QFont("Arial", 14))
+
+        # Widget principal con buscador y lista
+        container = Widget.QFrame()
+        container.setFrameShape(Widget.QFrame.StyledPanel)
+        container.setStyleSheet("background-color: white; border: 1px solid #ccc; border-radius: 5px;")
+        layout = Widget.QVBoxLayout(container)
+
+        # Input de búsqueda
+        search_box = Widget.QLineEdit()
+        search_box.setPlaceholderText("Buscar opciones...")
+        layout.addWidget(search_box)
+    
+
+        # Lista de opciones (con selección múltiple)
+        list_widget = Widget.QListWidget()
+        list_widget.addItems(options)
+        list_widget.setSelectionMode(Widget.QAbstractItemView.MultiSelection)
+        list_widget.setMaximumHeight(50)  # Altura máxima en píxeles para la lista
+        list_widget.setSizePolicy(Widget.QSizePolicy.Expanding, Widget.QSizePolicy.Fixed)
+
+        # **Límite de altura máxima para la lista**
+        layout.addWidget(list_widget)
+
+        # Filtro en tiempo real
+        def filter_list(text):
+            for index in range(list_widget.count()):
+                item = list_widget.item(index)
+                item.setHidden(text.lower() not in item.text().lower())
+
+        search_box.textChanged.connect(filter_list)
+
+        # Autocompletar basado en las opciones
+        completer = Widget.QCompleter(options)
+        completer.setCaseSensitivity(Core.Qt.CaseInsensitive)
+        search_box.setCompleter(completer)
+
+        # Añadir al layout principal
+        self.add_in_layout(target_layout, container, label)
+        self.list_more_options(target_layout, container, label)
+
+        # Guardar en el diccionario de inputs
+        self.inputs[label_text] = list_widget
+
     def add_input_checkbox(self, label_text, target_layout=None):
         """Agregar una casilla de verificación."""
         checkbox = Widget.QCheckBox(label_text)
@@ -367,11 +509,12 @@ class GMATGUI(Widget.QMainWindow):
 
         # Crear un layout horizontal para el campo y el botón
         path_layout = Widget.QHBoxLayout()
+        label.setAlignment(Core.Qt.AlignRight | Core.Qt.AlignVCenter)
+        label.setMinimumWidth(150)
+        path_layout.addWidget(label)
         path_layout.addWidget(input_field)
         path_layout.addWidget(browse_button)
 
-        # Añadir la etiqueta y el layout horizontal al layout principal
-        self.add_in_layout(target_layout, None, label)
         target_layout.addLayout(path_layout)
         self.list_more_options(target_layout, input_field, label, browse_button)
 
@@ -467,5 +610,26 @@ class GMATGUI(Widget.QMainWindow):
                 parameters[label_text] = widget.isChecked()
             elif isinstance(widget, Widget.QDateEdit):
                 parameters[label_text] = widget.date().toString("dd-MM-yyyy")
+            elif isinstance(widget, Widget.QListWidget):
+                selected_items = widget.selectedItems()
+                parameters[label_text] = [item.text() for item in selected_items]
 
         return parameters
+
+    
+    def show_popup(self, message, title="Información"):
+        """Muestra una ventana emergente con un mensaje."""
+        popup = Widget.QMessageBox(self)
+        popup.setWindowTitle(title)
+        popup.setText(message)
+        popup.setIcon(Widget.QMessageBox.Information)
+        popup.setStandardButtons(Widget.QMessageBox.Ok)
+        popup.exec_()
+    
+
+    def update_status(self, message):
+        """
+        Actualiza el texto dinámico en la parte inferior de la GUI.
+        """
+        self.status_label.setText(f"Estado: {message}")
+        Widget.QApplication.processEvents()  # Forzar la actualización inmediata de la GUI

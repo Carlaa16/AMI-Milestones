@@ -1,8 +1,6 @@
 import numpy as np
 from math import sqrt
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from shapely.geometry import Point, Polygon
 import pandas as pd
 from scipy.optimize import fsolve
 import chardet
@@ -13,17 +11,18 @@ import json
 ###################################### Constantes y parámetros #####################################
 
 # Parámetros de la Tierra
+option = 'iot_fov_traces'  # Cambia a 'iot_fov_traces' para FOV de IoT y trazas de satélites / satellite_fov
 R_EARTH = 6371  # Radio de la Tierra en km
 MU = 3.986e14  # Constante gravitacional en m^3/s^2
 C = 3e8  # Velocidad de la luz en m/s
 K = 1.38e-23  # Constante de Boltzmann en J/K
-num_sats = 11
+num_sats = 8
 altitude_km = 850  # Altitud en km
-fov_angle = 90  # Ángulo de visión en grados
-beamwidth = 110 # Ancho de haz de la antena en grados
+fov_angle = 60  # Ángulo de visión en grados
+beamwidth = 80 # Ancho de haz de la antena en grados
 frequency_hz_up = 2.4e9  # Frecuencia en Hz
 frequency_hz_down = 2.4e9  # Frecuencia en Hz
-tx_power_dbw_up = 12.5 - 30  # Potencia inicial del transmisor en dBW
+tx_power_dbw_up = 20 - 30  # Potencia inicial del transmisor en dBW
 tx_power_dbw_down = 12.5 - 30  # Potencia inicial del transmisor en dBW
 use_amplifier_up = False  # Usar amplificador (True o False)
 use_amplifier_down = False  # Usar amplificador (True o False)
@@ -32,7 +31,7 @@ amplifier_gain_db_down = 20  # Ganancia del amplificador en dB
 amplifier_losses_db_up = 1  # Pérdidas del amplificador en dB
 amplifier_losses_db_down = 1  # Pérdidas del amplificador en dB
 antenna_gain_db_up = 12.5  # Ganancia de la antena iot en dB
-antenna_gain_db_down = 14.5  # Ganancia de la antena sat en dB
+antenna_gain_db_down = 9  # Ganancia de la antena sat en dB
 cable_losses_db_up = 2  # Pérdidas por cable en dB
 cable_losses_db_down = 2  # Pérdidas por cable en dB
 max_eirp_dbw_up = 14 - 30  # EIRP máximo permitido
@@ -43,7 +42,7 @@ system_noise_temp_k_up = 615  # Temperatura de ruido del sistema en Kelvin
 system_noise_temp_k_down = 135  # Temperatura de ruido del sistema en Kelvin
 # animated = False  # Cambia a True para mostrar los satélites uno por uno
 uplink_data_size_bits = 100  # Tamaño total de datos
-downlink_data_size_bits = 100  # Tamaño total de datos
+downlink_data_size_bits = 1000  # Tamaño total de datos
 
 ####################################################################################################
 ########################################## Geometría ###############################################
@@ -184,44 +183,35 @@ def calculate_eb_no(eirp_dbw, losses_db, rx_gain_db, system_noise_temp_k, data_r
     log_r = 10 * np.log10(data_rate_bps)
     return eirp_dbw - losses_db + rx_gain_db + 228.6 - log_t_s - log_r
 
-def calculate_bitrates_from_visibility(visibility, uplink_data_size_bits, downlink_data_size_bits):
+def calculate_bitrates_from_visibility(consolidated_visibility, uplink_data_size_bits, downlink_data_size_bits):
     """
-    Calcula la tasa de datos necesaria para transmitir un tamaño de datos
-    basado en los tiempos de visibilidad calculados.
+    Calcula la tasa de datos para transmitir datos en cada intervalo consolidado de visibilidad.
 
     Parámetros:
-        visibility (dict): Diccionario con { (sat_index, iot_index): [time_steps] }.
-                           Estos valores provienen de `track_visibility_over_time`.
-        data_size_bits (float): Tamaño total de datos a transmitir en bits.
+        consolidated_visibility (dict): {(sat_index, iot_index): [(start_time, end_time), ...]}
+        uplink_data_size_bits (float): Tamaño total de datos a transmitir en el Uplink (bits).
+        downlink_data_size_bits (float): Tamaño total de datos a transmitir en el Downlink (bits).
 
     Retorna:
-        dict: Diccionario con { (sat_index, iot_index): bitrate_required }.
+        dict: {(sat_index, iot_index): {"uplink_bitrate": float, "downlink_bitrate": float}}
     """
-    # Obtener los tiempos de conexión (primera y última conexión)
-    visibility_times = get_first_last_connection_difference(visibility)
-
-    # Calcular las tasas de datos necesarias
     bitrate_results = {}
 
-    for (sat_index, iot_index), (start_time, end_time) in visibility_times.items():
-        # Calcular el tiempo efectivo de conexión
-        effective_time = end_time - start_time
+    for (sat_index, iot_index), intervals in consolidated_visibility.items():
+        for start_time, end_time in intervals:
+            effective_time = end_time - start_time
+            if effective_time > 0:
+                uplink_bitrate = uplink_data_size_bits / effective_time
+                downlink_bitrate = downlink_data_size_bits / effective_time
+            else:
+                uplink_bitrate = None
+                downlink_bitrate = None
 
-        if effective_time <= 0:
-            # Sin tiempo efectivo
-            bitrate_results[(sat_index, iot_index)] = {
-                "uplink_bitrate": None,
-                "downlink_bitrate": None
-            }
-        else:
-            # Calcular tasas de datos requeridas
-            uplink_bitrate = uplink_data_size_bits / effective_time
-            downlink_bitrate = downlink_data_size_bits / effective_time
-
-            bitrate_results[(sat_index, iot_index)] = {
+            # Guardar las tasas de bits por intervalo
+            bitrate_results.setdefault((sat_index, iot_index), []).append({
                 "uplink_bitrate": uplink_bitrate,
                 "downlink_bitrate": downlink_bitrate
-            }
+            })
 
     return bitrate_results
 
@@ -319,34 +309,34 @@ def track_visibility_over_time(satellite_positions, iot_positions, altitude_km, 
                     
     return visibility
 
-def consolidate_visibility_times(visibility, time_threshold=10.0):
+def consolidate_visibility_times(visibility, time_threshold):
     """
-    Consolida los tiempos de visibilidad continuos basados en una ruptura temporal significativa.
+    Consolida los tiempos de visibilidad continuos en intervalos.
 
     Parámetros:
         visibility (dict): Diccionario con { (sat_index, iot_index): [time_steps] }.
-        time_threshold (float): Umbral de tiempo para detectar ruptura en la conexión (en segundos).
+        time_threshold (float): Umbral de tiempo para detectar ruptura en la conexión.
 
     Retorna:
-        dict: Diccionario con { (sat_index, iot_index): [(start_time, end_time)] }.
+        dict: { (sat_index, iot_index): [(start_time, end_time), ...] }.
     """
     consolidated_connections = {}
 
     for (sat_index, iot_index), time_steps in visibility.items():
-        time_steps = sorted(time_steps)  # Asegurarse de que los tiempos estén ordenados
+        time_steps = sorted(time_steps)  # Ordenar los tiempos
         intervals = []
-        start_time = time_steps[0]
 
-        # Consolidar intervalos continuos
+        start_time = time_steps[0]
         for i in range(1, len(time_steps)):
             if (time_steps[i] - time_steps[i - 1]) > time_threshold:
-                # Cerrar la conexión anterior
                 end_time = time_steps[i - 1]
                 intervals.append((start_time, end_time))
-                start_time = time_steps[i]  # Iniciar una nueva conexión
+                start_time = time_steps[i]
 
-        # Agregar la última conexión
-        intervals.append((start_time, time_steps[-1]))
+        # Agregar el último intervalo
+        end_time = time_steps[-1]
+        intervals.append((start_time, end_time))
+
         consolidated_connections[(sat_index, iot_index)] = intervals
 
     return consolidated_connections
@@ -407,73 +397,8 @@ def get_first_last_connection_difference(visibility):
 
     return connection_times
 
-# def calculate_iot_visibility_time(altitude_km, fov_angle, iot_lat, iot_lon, sat_path):
-#     """
-#     Calcula el tiempo que un satélite ve a un dispositivo IoT dentro de su FOV.
-
-#     Parámetros:
-#         satellite_altitude_km (float): Altitud del satélite en km.
-#         fov_angle_deg (float): Ángulo de visión (FOV) del satélite en grados.
-#         iot_lat (float): Latitud del dispositivo IoT.
-#         iot_lon (float): Longitud del dispositivo IoT.
-#         sat_path (list): Lista de posiciones del satélite [(lat, lon)].
-
-#     Retorna:
-#         float: Tiempo de visibilidad en segundos.
-#     """
-#     # Calcular el radio del FOV usando la función existente
-#     _, r_fov_km, _ = calculate_fov_radius(altitude_km, fov_angle)
-#     # Cargar datos de satélites
-#     all_satellite_data = load_satellite_data(sat_files_dir, num_sats)
-#     if all_satellite_data.empty:
-#         raise ValueError("No se cargaron datos de los satélites. Verifica los archivos en el directorio.")
-
-#     # Cargar datos de IoT
-#     iot_df = load_iot_data(iot_file)
-#     if iot_df.empty:
-#         raise ValueError("No se cargaron datos de los dispositivos IoT. Verifica el archivo.")
-
-#     # Organizar posiciones de satélites
-#     satellite_positions = organize_satellite_positions(all_satellite_data)
-
-#     # Calcular tiempo de visibilidad para cada combinación de satélite e IoT
-#     visibility_results = {}
-#     for iot_index, iot_row in iot_df.iterrows():
-#         iot_lat = iot_row['lat']  # Asegúrate de que 'lat' y 'lon' existen en el archivo IoT
-#         iot_lon = iot_row['lon']
-
-#         for sat_index, sat_positions in enumerate(satellite_positions):
-#             visibility_time = 0
-#             for sat_lat, sat_lon in sat_positions:
-#                 distance_km = haversine_distance(iot_lat, iot_lon, sat_lat, sat_lon, R_EARTH)
-#                 if distance_km <= r_fov_km:
-#                     # Asumimos 1 segundo entre posiciones del satélite
-#                     visibility_time += 1  
-#             visibility_results[(sat_index, iot_index)] = visibility_time
-
-#     return visibility_results
-
-# def haversine_distance(lat1, lon1, lat2, lon2, radius):
-#     """
-#     Calcula la distancia en km entre dos puntos geográficos usando la fórmula de Haversine.
-
-#     Parámetros:
-#         lat1, lon1: Latitud y longitud del primer punto.
-#         lat2, lon2: Latitud y longitud del segundo punto.
-#         radius: Radio de la esfera (e.g., radio de la Tierra).
-
-#     Retorna:
-#         float: Distancia en km.
-#     """
-#     dlat = np.radians(lat2 - lat1)
-#     dlon = np.radians(lon2 - lon1)
-#     a = (np.sin(dlat / 2)**2 +
-#          np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon / 2)**2)
-#     c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
-#     return radius * c
-
 # Implementa funciones y hace el cálculo de enlace
-def calculate_link_budget(visibility, altitude_km, fov_angle, beamwidth, uplink_data_size_bits, downlink_data_size_bits):
+def calculate_link_budget(consolidated_visibility, altitude_km, fov_angle, beamwidth, uplink_data_size_bits, downlink_data_size_bits):
     """
     Calcula el balance de enlace para Uplink y Downlink reutilizando funciones existentes.
 
@@ -495,7 +420,7 @@ def calculate_link_budget(visibility, altitude_km, fov_angle, beamwidth, uplink_
     max_downlink_distance, max_uplink_distance = calculate_max_distances(altitude_km, fov_angle, beamwidth)
 
     # Calcular tasas de datos
-    bitrate_results = calculate_bitrates_from_visibility(visibility, uplink_data_size_bits, downlink_data_size_bits)
+    bitrate_results = calculate_bitrates_from_visibility(consolidated_visibility, uplink_data_size_bits, downlink_data_size_bits)
 
     # Parámetros específicos para Uplink y Downlink
     uplink_params = {
@@ -528,34 +453,35 @@ def calculate_link_budget(visibility, altitude_km, fov_angle, beamwidth, uplink_
 
     results = {}
 
-    # Iterar sobre cada conexión y calcular el balance de enlace
-    for (sat_index, iot_index), rates in bitrate_results.items():
-        uplink_bitrate = rates["uplink_bitrate"]
-        downlink_bitrate = rates["downlink_bitrate"]
+    for (sat_index, iot_index), rates_list in bitrate_results.items():
+        for rates in rates_list:  # Iterar sobre la lista de diccionarios
+            uplink_bitrate = rates["uplink_bitrate"]
+            downlink_bitrate = rates["downlink_bitrate"]
 
-        # --- Calcular Uplink ---
-        uplink_results = calculate_link_parameters(
-            distance_km=max_uplink_distance,
-            params=uplink_params
-        )
+            # --- Calcular Uplink ---
+            uplink_results = calculate_link_parameters(
+                distance_km=max_uplink_distance,
+                params=uplink_params
+            )
 
-        # --- Calcular Downlink ---
-        downlink_results = calculate_link_parameters(
-            distance_km=max_downlink_distance,
-            params=downlink_params
-        )
+            # --- Calcular Downlink ---
+            downlink_results = calculate_link_parameters(
+                distance_km=max_downlink_distance,
+                params=downlink_params
+            )
 
-        # Guardar resultados
-        results[(sat_index, iot_index)] = {
-            "uplink": {
-                "bitrate": uplink_bitrate,
-                **uplink_results
-            },
-            "downlink": {
-                "bitrate": downlink_bitrate,
-                **downlink_results
-            }
-        }
+            # Guardar resultados
+            results.setdefault((sat_index, iot_index), []).append({
+                "uplink": {
+                    "bitrate": uplink_bitrate,
+                    **uplink_results
+                },
+                "downlink": {
+                    "bitrate": downlink_bitrate,
+                    **downlink_results
+                }
+            })
+
 
     return results
 
@@ -772,82 +698,60 @@ satellite_positions = (
 print("Satélites detectados en satellite_positions:", satellite_positions.keys())
 
 # Guaradr resultados en excel
-def save_results_to_excel(visibility_summary, link_budget_results, output_file):
+def save_results_to_excel(consolidated_visibility, link_budget_results, output_file):
     """
-    Guarda los resultados en un archivo Excel organizado en pestañas, manejando conexiones dinámicas
-    y distintos formatos de visibilidad.
+    Guarda los resultados de visibilidad consolidada y del balance de enlace en un archivo Excel.
+
+    Parámetros:
+        consolidated_visibility (dict): Visibilidad consolidada { (sat_id, iot_id): [(start, end), ...] }.
+        link_budget_results (dict): Resultados del balance de enlace.
+        output_file (str): Ruta del archivo Excel de salida.
     """
     try:
-        
-        # Crear DataFrame para visibilidad (manejo dinámico de formato)
+        # --- 1. Crear DataFrame para la visibilidad consolidada ---
         visibility_data = []
-        for (sat_id, iot_id), times in visibility_summary.items():
-            if isinstance(times, tuple) and len(times) == 2:  # Caso de primera y última conexión
-                start_time, end_time = times
-                duration = end_time - start_time
+        for (sat_id, iot_id), intervals in consolidated_visibility.items():
+            for start_time, end_time in intervals:
                 visibility_data.append({
                     "Satellite_ID": sat_id,
                     "IoT_ID": iot_id,
-                    "Start_Time": start_time,
-                    "End_Time": end_time,
-                    "Duration (s)": duration 
+                    "Duration (s)": end_time - start_time
                 })
-            elif isinstance(times, list):  # Caso de visibilidad en todos los puntos
-                for t in times:
-                    visibility_data.append({
-                        "Satellite_ID": sat_id,
-                        "IoT_ID": iot_id,
-                        "Visibility_Time": t
-                    })
-            else:
-                print(f"Advertencia: Formato desconocido para visibilidad {times}")
-        
         visibility_df = pd.DataFrame(visibility_data)
-        
-        data = []
-        for (sat_id, iot_id), intervals in consolidated_visibility.items():
-            for start, end in intervals:
-                data.append({
-                    "Satellite_ID": sat_id,
-                    "IoT_ID": iot_id,
-                    "Start_Time": start,
-                    "End_Time": end,
-                    "Duration (s)": end - start + 1
-                })
 
-        # Crear DataFrame y guardar en Excel
-        consolidate_df = pd.DataFrame(data)
-
-        # Crear DataFrame para resultados del balance de enlace
+        # --- 2. Crear DataFrame para el Link Budget ---
         link_budget_data = []
         for (sat_id, iot_id), results in link_budget_results.items():
-            uplink = results["uplink"]
-            downlink = results["downlink"]
+            # Acceder al primer elemento si el resultado es una lista
+            if isinstance(results, list):
+                results = results[0]
 
             link_budget_data.append({
                 "Satellite_ID": sat_id,
                 "IoT_ID": iot_id,
-                "Uplink_Bitrate_bps": uplink["bitrate"],
-                "Uplink_Losses_dB": uplink["losses_db"],
-                "Uplink_EIRP_dBW": uplink["eirp_dbw"],
-                "Uplink_Eb/No_dB": uplink["eb_no_db"],
-                "Downlink_Bitrate_bps": downlink["bitrate"],
-                "Downlink_Losses_dB": downlink["losses_db"],
-                "Downlink_EIRP_dBW": downlink["eirp_dbw"],
-                "Downlink_Eb/No_dB": downlink["eb_no_db"]
+                "Uplink_Losses_dB": results["uplink"]["losses_db"],
+                "Uplink_EIRP_dBW": results["uplink"]["eirp_dbw"],
+                "Uplink_Eb_No_dB": results["uplink"]["eb_no_db"],
+                "Uplink_Bitrate_bps": results["uplink"]["bitrate"],
+                "Downlink_Bitrate_bps": results["downlink"]["bitrate"],
+                "Downlink_Losses_dB": results["downlink"]["losses_db"],
+                "Downlink_EIRP_dBW": results["downlink"]["eirp_dbw"],
+                "Downlink_Eb_No_dB": results["downlink"]["eb_no_db"]
+                
+                
+                
             })
         link_budget_df = pd.DataFrame(link_budget_data)
 
-        # Guardar todo en un archivo Excel con múltiples pestañas
+        # --- 3. Guardar todo en un archivo Excel ---
         with pd.ExcelWriter(output_file) as writer:
-            visibility_df.to_excel(writer, sheet_name="Visibility_Summary", index=False)
-            consolidate_df.to_excel(writer, sheet_name="Visibility_Results", index=False)
+            visibility_df.to_excel(writer, sheet_name="Visibility_Results", index=False)
             link_budget_df.to_excel(writer, sheet_name="Link_Budget_Results", index=False)
 
         print(f"Resultados guardados en {output_file}")
+
     except Exception as e:
         print(f"Error al generar el archivo Excel: {e}")
-
 
 ####################################################################################################
 ############################################### Checks #############################################
@@ -893,65 +797,105 @@ def validate_parameters(altitude_km, fov_angle, beamwidth):
 ####################################################################################################
 ####################################### Visualización de datos #####################################
 
-# Función para generar los puntos de un círculo en coordenadas geográficas
-def generate_device_coverage_circle(lat, lon, radius_km, num_points=100):
-    circle_lats = []
-    circle_lons = []
-    for i in range(num_points):
-        angle = 2 * np.pi * i / num_points
-        dlat = radius_km / R_EARTH * np.cos(angle)
-        dlon = radius_km / (R_EARTH * np.cos(np.radians(lat))) * np.sin(angle)
-        circle_lats.append(lat + np.degrees(dlat))
-        circle_lons.append(lon + np.degrees(dlon))
-    return circle_lats, circle_lons
 
-# Cargar un mapa de la Tierra
-# Crear la figura y el eje
-fig, ax = plt.subplots(figsize=(15, 8))
-ax.set_xlim([-180, 180])
-ax.set_ylim([-90, 90])
-plt.title("FOV de Satélites e IoT")
-plt.xlabel("Longitud")
-plt.ylabel("Latitud")
-
-# Dibujar fondo
-background = plt.imread(background_image_path)
-ax.imshow(background, extent=[-180, 180, -90, 90], aspect='auto')
-
-
-# # Dibujar las coberturas IoT con círculos más definidos (independiente del modo)
-# for _, device in iot_df.iterrows():
-#     _, radius_km, _ = calculate_fov_radius(altitude_km, beamwidth)
-
-#     circle_lat, circle_lon = generate_device_coverage_circle(device['lat'], device['lon'], radius_km)
-#     ax.plot(circle_lon, circle_lat, color='red', linewidth=1.5)  # Borde del círculo
-#     ax.fill(circle_lon, circle_lat, color='red', alpha=0.2)  # Relleno del círculo
-# # Dibujar coberturas de satélites con círculos grandes (FOV del satélite)
-# for sat_index, (sat_lat, sat_lon) in enumerate(satellite_positions):
-#     # Calcular el radio del FOV del satélite
-#     _, r_fov_km, _ = calculate_fov_radius(altitude_km, fov_angle)  # FOV del satélite en km
+def plot_visualization(option, satellite_positions, iot_df, altitude_km, fov_angle, beamwidth, background_image_path):
+    """
+    Función para visualizar FOV de satélites o FOV de IoT con trazas de satélites.
     
-#     # Generar el círculo de cobertura del satélite
-#     circle_lat, circle_lon = generate_device_coverage_circle(sat_lat, sat_lon, r_fov_km)
-    
-#     # Graficar el círculo en el mapa
-#     ax.plot(circle_lon, circle_lat, color='black', linewidth=1.5)  # Borde del círculo
-#     ax.fill(circle_lon, circle_lat, color='pink', alpha=0.2)  # Relleno del círculo
+    Parámetros:
+        option (str): Modo de visualización ('satellite_fov' o 'iot_fov_traces').
+        satellite_positions (dict): Posiciones de los satélites {sat_id: [(lat, lon), ...]}.
+        iot_df (DataFrame): Posiciones de los dispositivos IoT (lat, lon).
+        altitude_km (float): Altitud de los satélites.
+        fov_angle (float): Ángulo de visión de los satélites.
+        beamwidth (float): Ancho de haz de los IoT.
+        background_image_path (str): Ruta de la imagen del mapa.
+    """
 
-# # Graficar conexiones
-# for connection in connections:
-#     sat_lat, sat_lon, iot_lat, iot_lon, _ = connection
-#     ax.plot([sat_lon, iot_lon], [sat_lat, iot_lat], color='red')
-# plt.show()
+    def generate_circle(lat, lon, radius_km, num_points=100):
+        """Genera un círculo geográfico alrededor de un punto."""
+        angles = np.linspace(0, 2 * np.pi, num_points)
+        circle_lat = lat + (radius_km / R_EARTH) * (180 / np.pi) * np.sin(angles)
+        circle_lon = lon + (radius_km / R_EARTH) * (180 / np.pi) * np.cos(angles) / np.cos(np.radians(lat))
+        return circle_lat, circle_lon
+
+    def plot_traces(ax, satellite_positions, color="green"):
+        """Dibuja las trazas de los satélites manejando saltos de longitud."""
+        for sat_index, positions in satellite_positions.items():
+            lats, lons = zip(*positions)  # Extraer posiciones
+            segments = []
+            current_segment = [positions[0]]
+            
+            # Detectar saltos
+            for i in range(1, len(positions)):
+                if abs(lons[i] - lons[i - 1]) > 180:
+                    segments.append(current_segment)
+                    current_segment = []
+                current_segment.append(positions[i])
+            segments.append(current_segment)
+
+            # Dibujar segmentos
+            for segment in segments:
+                if len(segment) > 1:
+                    segment_lats, segment_lons = zip(*segment)
+                    ax.plot(segment_lons, segment_lats, color=color, linewidth=1.2, label=f"Satélite {sat_index}")
+
+    # Configurar la figura
+    fig, ax = plt.subplots(figsize=(15, 8))
+    ax.set_xlim([-180, 180])
+    ax.set_ylim([-90, 90])
+    plt.xlabel("Longitud")
+    plt.ylabel("Latitud")
+    plt.title("Visualización de Satélites e IoT")
+
+    # Cargar fondo
+    background = plt.imread(background_image_path)
+    ax.imshow(background, extent=[-180, 180, -90, 90], aspect='auto')
+
+    # --- Modo 1: FOV de Satélites ---
+    if option == 'satellite_fov':
+        for sat_index, positions in satellite_positions.items():
+            for lat, lon in positions:
+                sat_radius = calculate_fov_radius(altitude_km, fov_angle)[1]
+                circle_lat, circle_lon = generate_circle(lat, lon, sat_radius)
+                ax.plot(circle_lon, circle_lat, color='red', linewidth=1.2)
+                ax.fill(circle_lon, circle_lat, color='red', alpha=0.1)
+        # Dibujar dispositivos IoT como puntos
+        ax.scatter(iot_df['lon'], iot_df['lat'], color='black', s=20, label='Dispositivo IoT')
+        plt.legend(["FOV Satélite", "Dispositivo IoT"])
+
+    # --- Modo 2: FOV de IoT con trazas de satélites ---
+    elif option == 'iot_fov_traces':
+        # Dibujar FOV de dispositivos IoT
+        for _, device in iot_df.iterrows():
+            iot_radius = calculate_iot_radius(beamwidth)
+            circle_lat, circle_lon = generate_circle(device['lat'], device['lon'], iot_radius)
+            ax.plot(circle_lon, circle_lat, color='black', linewidth=1.0, linestyle='--', alpha=0.7)
+            ax.fill(circle_lon, circle_lat, color='green', alpha=0.2)
+        plt.legend(["FOV IoT"])
+
+        # Dibujar trazas de los satélites
+        plot_traces(ax, satellite_positions, color="red")
+
+    # Mostrar la figura
+    plt.show()
+
+
+# --- Llamada a la función ---
+# Alternar entre modos:
+# - 'satellite_fov': Solo muestra FOV de los satélites y puntos IoT.
+# - 'iot_fov_traces': Muestra FOV de IoT y las trazas de satélites.
+
+plot_visualization(option, satellite_positions, iot_df, altitude_km, fov_angle, beamwidth, background_image_path)
+
+
 
 # Obtener VISIBILIDAD
 visibility = track_visibility_over_time(satellite_positions, iot_positions, altitude_km, fov_angle, beamwidth)
 # Consolidar los tiempos en intervalos continuos
-consolidated_visibility = consolidate_visibility_times(visibility, time_threshold=1.0)
+consolidated_visibility = consolidate_visibility_times(visibility, time_threshold=90)
 
 # Mostrar resultados consolidados
-for key, intervals in consolidated_visibility.items():
-    print(f"Satélite {key[0]} - IoT {key[1]}: {intervals}")
 
 # TIEMPOS DE CONEXIÓN
 # 1. Obtener todas las CONEXIONES
@@ -971,7 +915,9 @@ first_last_differences = get_first_last_connection_difference(visibility)
 
 
 # TASA DE DATOS
-bitrate_results = calculate_bitrates_from_visibility(visibility, uplink_data_size_bits, downlink_data_size_bits)
+bitrate_results = calculate_bitrates_from_visibility(consolidated_visibility, uplink_data_size_bits, downlink_data_size_bits)
+
+# bitrate_results = calculate_bitrates_from_visibility(visibility, uplink_data_size_bits, downlink_data_size_bits)
 # Imprimir resultados ENLACE con manejo de None
 # for (sat_index, iot_index), rates in bitrate_results.items():
 #     uplink_bitrate = rates['uplink_bitrate']
@@ -991,7 +937,7 @@ bitrate_results = calculate_bitrates_from_visibility(visibility, uplink_data_siz
 
 
 results = calculate_link_budget(
-    visibility=visibility,
+    consolidated_visibility=consolidated_visibility,
     altitude_km=altitude_km,
     fov_angle=fov_angle,
     beamwidth=beamwidth,
@@ -1029,7 +975,7 @@ output_file = r"C:\Users\carla\OneDrive\Documentos\MUSE\AM1\AMI-Milestones\M7\CO
 
 
 # Verificar y guardar resultados
-save_results_to_excel(first_last_differences, results, output_file)
+save_results_to_excel(consolidated_visibility, results, output_file)
 
 
 # Suponiendo que all_satellite_data es una lista o diccionario
